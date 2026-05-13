@@ -32,11 +32,22 @@ func main() {
 	}
 
 	svc := service.New(store, store, store, store, store)
+
 	h := handler.New(svc)
+	handler := setupMiddleware(h, svc)
 
 	addr := getenv("ADDR", ":8080")
 	log.Printf("listening on %s", addr)
-	log.Fatal(http.ListenAndServe(addr, middleware.CORS(middleware.Auth(middleware.Logging(h.Routes())))))
+
+	log.Fatal(http.ListenAndServe(addr, handler))
+}
+
+func setupMiddleware(h *handler.Handler, s *service.Service) http.Handler {
+	var handler http.Handler = h.Routes()
+	handler = middleware.Logging(handler)
+	handler = middleware.Auth(s)(handler)
+	handler = middleware.CORS(handler)
+	return handler
 }
 
 func getenv(key, fallback string) string {
