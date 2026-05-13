@@ -36,7 +36,7 @@ func main() {
 
 	addr := getenv("ADDR", ":8080")
 	log.Printf("listening on %s", addr)
-	log.Fatal(http.ListenAndServe(addr, middleware.Auth(middleware.Logging(h.Routes()))))
+	log.Fatal(http.ListenAndServe(addr, middleware.CORS(middleware.Auth(middleware.Logging(h.Routes())))))
 }
 
 func getenv(key, fallback string) string {
