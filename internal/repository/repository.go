@@ -7,7 +7,7 @@ import (
 )
 
 type UserRepository interface {
-	CreateUser(ctx context.Context, name string, email string) (model.User, error)
+	CreateUser(ctx context.Context, name string, email string, passwordHash string) (model.User, error)
 	ListUsers(ctx context.Context) ([]model.User, error)
 }
 
@@ -22,6 +22,6 @@ type MembershipRepository interface {
 }
 
 type PostRepository interface {
-	CreatePost(ctx context.Context, channelID string, text string) (model.Post, error)
+	CreatePost(ctx context.Context, channelID string, text string, userID string) (model.Post, error)
 	ListPosts(ctx context.Context, channelID string) ([]model.Post, error)
 }

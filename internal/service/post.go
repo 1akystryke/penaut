@@ -8,7 +8,7 @@ import (
 	"messenger/internal/model"
 )
 
-func (s *Service) CreatePost(ctx context.Context, channelID string, text string) (model.Post, error) {
+func (s *Service) CreatePost(ctx context.Context, channelID string, text string, userID string) (model.Post, error) {
 	channelID = strings.TrimSpace(channelID)
 	text = strings.TrimSpace(text)
 	if channelID == "" {
@@ -18,7 +18,7 @@ func (s *Service) CreatePost(ctx context.Context, channelID string, text string)
 		return model.Post{}, errors.New("text is required")
 	}
 
-	return s.posts.CreatePost(ctx, channelID, text)
+	return s.posts.CreatePost(ctx, channelID, text, userID)
 }
 
 func (s *Service) ListPosts(ctx context.Context, channelID string) ([]model.Post, error) {

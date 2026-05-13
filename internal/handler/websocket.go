@@ -36,7 +36,9 @@ func (h *Handler) websocket(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		p, err := h.service.CreatePost(r.Context(), channelID, req.Text)
+		user := "37dd6886-fcb5-44aa-a4f7-925a187a9126"
+
+		p, err := h.service.CreatePost(r.Context(), channelID, req.Text, user)
 		if err != nil {
 			_ = c.writeJSON(map[string]string{"error": err.Error()})
 			continue

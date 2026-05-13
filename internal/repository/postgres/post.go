@@ -8,14 +8,14 @@ import (
 	"github.com/jackc/pgx/v5"
 )
 
-func (s *Store) CreatePost(ctx context.Context, channelID string, text string) (model.Post, error) {
+func (s *Store) CreatePost(ctx context.Context, channelID string, text string, userID string) (model.Post, error) {
 	var p model.Post
 	err := s.db.QueryRow(ctx,
-		`INSERT INTO posts (text, channel_id)
-		 VALUES ($1, $2)
-		 RETURNING id, text, channel_id, created_at`,
-		text, channelID,
-	).Scan(&p.ID, &p.Text, &p.ChannelID, &p.CreatedAt)
+		`INSERT INTO posts (text, channel_id, author)
+		 VALUES ($1, $2, $3)
+		 RETURNING id, text, channel_id, author, created_at`,
+		text, channelID, userID,
+	).Scan(&p.ID, &p.Text, &p.ChannelID, &p.UserID, &p.CreatedAt)
 	return p, err
 }
 

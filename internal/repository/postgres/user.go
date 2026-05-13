@@ -8,12 +8,12 @@ import (
 	"github.com/jackc/pgx/v5"
 )
 
-func (s *Store) CreateUser(ctx context.Context, name string, email string) (model.User, error) {
+func (s *Store) CreateUser(ctx context.Context, name string, email string, passwordHash string) (model.User, error) {
 	var u model.User
 	err := s.db.QueryRow(ctx,
-		`INSERT INTO users (name, email) VALUES ($1, $2) RETURNING id, name, email`,
-		name, email,
-	).Scan(&u.ID, &u.Name, &u.Email)
+		`INSERT INTO users (name, email, password_hash) VALUES ($1, $2, $3) RETURNING id, name, email, password_hash`,
+		name, email, passwordHash,
+	).Scan(&u.ID, &u.Name, &u.Email, &u.PasswordHash)
 	return u, err
 }
 

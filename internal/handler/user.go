@@ -4,15 +4,16 @@ import "net/http"
 
 func (h *Handler) createUser(w http.ResponseWriter, r *http.Request) {
 	var req struct {
-		Name  string `json:"name"`
-		Email string `json:"email"`
+		Name         string `json:"name"`
+		Email        string `json:"email"`
+		PasswordHash string `json:"password_hash"`
 	}
 	if err := readJSON(r, &req); err != nil {
 		writeError(w, http.StatusBadRequest, err)
 		return
 	}
 
-	u, err := h.service.CreateUser(r.Context(), req.Name, req.Email)
+	u, err := h.service.CreateUser(r.Context(), req.Name, req.Email, req.PasswordHash)
 	if err != nil {
 		writeError(w, http.StatusBadRequest, err)
 		return
