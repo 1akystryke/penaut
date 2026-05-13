@@ -26,3 +26,8 @@ type Membership struct {
 	UserID    string `json:"user_id" db:"user_id"`
 	ChannelID string `json:"channel_id" db:"channel_id"`
 }
+type Token struct {
+	Token     string    `json:"token" db:"token"`
+	UserID    string    `json:"user_id" db:"user_id"`
+	CreatedAt time.Time `json:"created_at" db:"created_at"`
+}

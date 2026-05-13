@@ -26,3 +26,21 @@ func (s *Store) ListUsers(ctx context.Context) ([]model.User, error) {
 
 	return pgx.CollectRows(rows, pgx.RowToStructByName[model.User])
 }
+
+func (s *Store) CheckPassword(ctx context.Context, email string, passwordHash string) (*model.User, error) {
+	//rows, err := s.db.Query(ctx, `SELECT id, name, email FROM users ORDER BY created_at DESC`)
+	rows, err := s.db.Query(ctx,
+		`Select id, name, email FROM users
+			where email = $1 and password_hash = $2
+			LIMIT 1`,
+		email, passwordHash,
+	)
+
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	userModel, err := pgx.CollectExactlyOneRow(rows, pgx.RowToStructByName[model.User])
+	return &userModel, err
+
+}

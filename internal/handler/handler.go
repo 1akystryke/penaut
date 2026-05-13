@@ -31,6 +31,7 @@ func (h *Handler) Routes() http.Handler {
 	mux.HandleFunc("POST /channels/{channel_id}/members", h.addMember)
 	mux.HandleFunc("GET /channels/{channel_id}/posts", h.listPosts)
 	mux.HandleFunc("POST /channels/{channel_id}/posts", h.createPost)
+	mux.HandleFunc("POST /auth", h.auth)
 	mux.HandleFunc("GET /ws", h.websocket)
 	return mux
 }

@@ -9,6 +9,7 @@ import (
 type UserRepository interface {
 	CreateUser(ctx context.Context, name string, email string, passwordHash string) (model.User, error)
 	ListUsers(ctx context.Context) ([]model.User, error)
+	CheckPassword(ctx context.Context, email string, passwordHash string) (*model.User, error)
 }
 
 type ChannelRepository interface {
@@ -24,4 +25,9 @@ type MembershipRepository interface {
 type PostRepository interface {
 	CreatePost(ctx context.Context, channelID string, text string, userID string) (model.Post, error)
 	ListPosts(ctx context.Context, channelID string) ([]model.Post, error)
+}
+
+type TokenRepository interface {
+	MakeToken(ctx context.Context, userID string, token string) (model.Token, error)
+	GetToken(ctx context.Context, token string) (*model.Token, error)
 }

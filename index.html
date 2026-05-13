@@ -1,0 +1,486 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Messenger</title>
+
+<style>
+*{box-sizing:border-box}
+body{
+  margin:0;
+  font-family:Arial,sans-serif;
+  height:100vh;
+  display:flex;
+  background:#0f172a;
+  color:#fff;
+}
+
+.sidebar{
+  width:320px;
+  border-right:1px solid #1e293b;
+  display:flex;
+  flex-direction:column;
+  background:#111827;
+}
+
+.main{
+  flex:1;
+  display:flex;
+  flex-direction:column;
+}
+
+.header{
+  padding:16px;
+  border-bottom:1px solid #1e293b;
+  display:flex;
+  gap:8px;
+  flex-wrap:wrap;
+}
+
+.channels{
+  overflow:auto;
+  padding:12px;
+}
+
+.channel{
+  padding:12px;
+  border-radius:10px;
+  background:#1e293b;
+  margin-bottom:10px;
+  cursor:pointer;
+}
+
+.channel.active{
+  background:#2563eb;
+}
+
+.messages{
+  flex:1;
+  overflow:auto;
+  padding:16px;
+}
+
+.message{
+  background:#1e293b;
+  padding:12px;
+  border-radius:12px;
+  margin-bottom:12px;
+}
+
+.time{
+  margin-top:6px;
+  opacity:.6;
+  font-size:12px;
+}
+
+.footer{
+  display:flex;
+  gap:10px;
+  padding:16px;
+  border-top:1px solid #1e293b;
+}
+
+input,select,button{
+  padding:10px;
+  border:none;
+  border-radius:8px;
+}
+
+input,select{
+  background:#1e293b;
+  color:#fff;
+}
+
+button{
+  background:#2563eb;
+  color:#fff;
+  cursor:pointer;
+}
+
+button:hover{
+  opacity:.9;
+}
+
+.small{
+  font-size:12px;
+  opacity:.7;
+  word-break:break-all;
+}
+
+.error{
+  background:#991b1b;
+  padding:10px;
+  margin:10px;
+  border-radius:8px;
+}
+
+.users{
+  padding:12px;
+  border-top:1px solid #1e293b;
+  overflow:auto;
+  max-height:240px;
+}
+</style>
+</head>
+
+<body>
+
+<div class="sidebar">
+
+  <div class="header">
+    <button onclick="createUser()">+ User</button>
+    <button onclick="login()">Login</button>
+    <button onclick="createChannel()">+ Channel</button>
+  </div>
+
+  <div id="channels" class="channels"></div>
+
+  <div class="users" id="users"></div>
+
+</div>
+
+<div class="main">
+
+  <div class="header">
+    <div>
+      <div id="channelName">No channel selected</div>
+      <div id="channelId" class="small"></div>
+    </div>
+  </div>
+
+  <div id="error"></div>
+
+  <div id="messages" class="messages"></div>
+
+  <div class="footer">
+    <input
+      id="messageInput"
+      placeholder="Message..."
+      style="flex:1"
+      onkeydown="if(event.key==='Enter')sendMessage()"
+    />
+    <button onclick="sendMessage()">Send</button>
+  </div>
+
+</div>
+
+<script>
+const DEFAULT_HOST='localhost:8080'
+const API=`http://${DEFAULT_HOST}`
+const WS=`ws://${DEFAULT_HOST}/ws`
+
+let channels=[]
+let users=[]
+let currentChannel=null
+let socket=null
+let token=localStorage.getItem('token')||''
+
+const channelsEl=document.getElementById('channels')
+const usersEl=document.getElementById('users')
+const messagesEl=document.getElementById('messages')
+const errorEl=document.getElementById('error')
+const messageInput=document.getElementById('messageInput')
+
+function showError(msg){
+  errorEl.innerHTML=''
+  const div=document.createElement('div')
+  div.className='error'
+  div.textContent=msg
+  errorEl.appendChild(div)
+  setTimeout(()=>errorEl.innerHTML='',4000)
+}
+
+async function request(path,options={}){
+  const headers={
+    'Content-Type':'application/json',
+    ...(options.headers||{})
+  }
+
+  if(token){
+    headers.Authorization=`Bearer ${token}`
+  }
+
+  const r=await fetch(API+path,{
+    ...options,
+    headers
+  })
+
+  const data=await r.json().catch(()=>({}))
+
+  if(!r.ok){
+    throw new Error(data.error||'Request failed')
+  }
+
+  return data
+}
+
+async function loadChannels(){
+  try{
+    channels=await request('/channels')
+
+    channelsEl.innerHTML=''
+
+    channels.forEach(c=>{
+      const div=document.createElement('div')
+      div.className='channel'+(currentChannel?.id===c.id?' active':'')
+      const title=document.createElement('div')
+      const strong=document.createElement('b')
+      strong.textContent=c.type
+      title.appendChild(strong)
+
+      const id=document.createElement('div')
+      id.className='small'
+      id.textContent=c.id
+
+      div.append(title,id)
+
+      div.onclick=()=>selectChannel(c)
+
+      channelsEl.appendChild(div)
+    })
+
+  }catch(e){
+    showError(e.message)
+  }
+}
+
+async function loadUsers(){
+  try{
+    users=await request('/users')
+
+    usersEl.innerHTML='<b>Users</b><br><br>'
+
+    users.forEach(u=>{
+      const div=document.createElement('div')
+      div.style.marginBottom='10px'
+
+      const name=document.createElement('div')
+      name.textContent=u.name
+
+      const email=document.createElement('div')
+      email.className='small'
+      email.textContent=u.email
+
+      div.append(name,email)
+      usersEl.appendChild(div)
+    })
+
+  }catch(e){
+    showError(e.message)
+  }
+}
+
+async function loadMessages(channelId){
+  try{
+    const posts=await request(`/channels/${channelId}/posts`)
+
+    messagesEl.innerHTML=''
+
+    posts.forEach(addMessage)
+
+    scrollBottom()
+
+  }catch(e){
+    showError(e.message)
+  }
+}
+
+function addMessage(m){
+  const div=document.createElement('div')
+
+  div.className='message'
+
+  const text=document.createElement('div')
+  text.textContent=m.text||''
+
+  const meta=document.createElement('div')
+  meta.className='time'
+  const date=m.created_at ? new Date(m.created_at).toLocaleString() : ''
+  meta.textContent=m.author ? `${date} · ${m.author}` : date
+
+  div.append(text,meta)
+
+  messagesEl.appendChild(div)
+}
+
+function scrollBottom(){
+  messagesEl.scrollTop=messagesEl.scrollHeight
+}
+
+async function selectChannel(channel){
+  currentChannel=channel
+
+  document.getElementById('channelName').textContent=
+    'Channel: '+channel.type
+
+  document.getElementById('channelId').textContent=
+    channel.id
+
+  await loadChannels()
+  await loadMessages(channel.id)
+
+  connectWS(channel.id)
+}
+
+function connectWS(channelId){
+
+  if(socket){
+    socket.close()
+  }
+
+  socket=new WebSocket(
+    `${WS}?channel_id=${channelId}`
+  )
+
+  socket.onmessage=(e)=>{
+    const data=JSON.parse(e.data)
+
+    if(data.error){
+      showError(data.error)
+      return
+    }
+
+    addMessage(data)
+    scrollBottom()
+  }
+
+  socket.onerror=()=>{
+    showError('WebSocket error')
+  }
+}
+
+async function sendMessage(){
+
+  if(!currentChannel){
+    return showError('Select channel')
+  }
+
+  const text=messageInput.value.trim()
+
+  if(!text){
+    return
+  }
+
+  try{
+
+    // websocket first
+    if(socket && socket.readyState===1){
+
+      socket.send(JSON.stringify({text}))
+
+    }else{
+
+      // fallback REST
+      await request(
+        `/channels/${currentChannel.id}/posts`,
+        {
+          method:'POST',
+          body:JSON.stringify({text})
+        }
+      )
+
+      await loadMessages(currentChannel.id)
+    }
+
+    messageInput.value=''
+
+  }catch(e){
+    showError(e.message)
+  }
+}
+
+async function createUser(){
+
+  const name=prompt('User name')
+  if(!name)return
+
+  const email=prompt('Email')
+  if(!email)return
+
+  const passwordHash=prompt('Password hash')
+  if(!passwordHash)return
+
+  try{
+
+    await request('/users',{
+      method:'POST',
+      body:JSON.stringify({
+        name,
+        email,
+        password_hash:passwordHash
+      })
+    })
+
+    await loadUsers()
+
+  }catch(e){
+    showError(e.message)
+  }
+}
+
+async function login(){
+  const email=prompt('Email')
+  if(!email)return
+
+  const pwd=prompt('Password hash')
+  if(!pwd)return
+
+  try{
+    const result=await request('/auth',{
+      method:'POST',
+      body:JSON.stringify({email,pwd})
+    })
+
+    token=typeof result==='string' ? result : result.token
+    localStorage.setItem('token',token)
+    showError('Logged in')
+
+  }catch(e){
+    showError(e.message)
+  }
+}
+
+async function createChannel(){
+
+  const type=prompt(
+    'Type: public/private/direct',
+    'public'
+  )
+
+  if(!type)return
+
+  try{
+
+    await request('/channels',{
+      method:'POST',
+      body:JSON.stringify({type})
+    })
+
+    await loadChannels()
+
+  }catch(e){
+    showError(e.message)
+  }
+}
+
+async function init(){
+
+  try{
+
+    const health=await request('/health')
+    console.log('health',health)
+
+  }catch(e){
+    showError('Backend offline')
+  }
+
+  await loadChannels()
+  await loadUsers()
+}
+
+init()
+</script>
+
+</body>
+</html>

@@ -31,12 +31,12 @@ func main() {
 		}
 	}
 
-	svc := service.New(store, store, store, store)
+	svc := service.New(store, store, store, store, store)
 	h := handler.New(svc)
 
 	addr := getenv("ADDR", ":8080")
 	log.Printf("listening on %s", addr)
-	log.Fatal(http.ListenAndServe(addr, middleware.Logging(h.Routes())))
+	log.Fatal(http.ListenAndServe(addr, middleware.Auth(middleware.Logging(h.Routes()))))
 }
 
 func getenv(key, fallback string) string {

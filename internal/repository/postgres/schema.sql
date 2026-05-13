@@ -29,5 +29,11 @@ CREATE TABLE IF NOT EXISTS memberships (
     PRIMARY KEY (user_id, channel_id)
 );
 
+CREATE TABLE IF NOT EXISTS tokens (
+    token TEXT PRIMARY KEY NOT NULL,
+    user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
 CREATE INDEX IF NOT EXISTS posts_channel_id_created_at_idx ON posts(channel_id, created_at);
 CREATE INDEX IF NOT EXISTS memberships_user_id_idx ON memberships(user_id);
