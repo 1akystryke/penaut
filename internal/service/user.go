@@ -3,9 +3,9 @@ package service
 import (
 	"context"
 	"errors"
-	"strings"
-
+	"fmt"
 	"messenger/internal/model"
+	"strings"
 )
 
 func (s *Service) CreateUser(ctx context.Context, name string, email string, passwordHash string) (model.User, error) {
@@ -28,6 +28,7 @@ func (s *Service) CheckPassword(ctx context.Context, email string, passwordHash 
 	}
 	user, err := s.users.CheckPassword(ctx, email, passwordHash)
 	if err != nil {
+		fmt.Println(err)
 		return &model.User{}, errors.New("wrong password")
 	}
 	return user, err

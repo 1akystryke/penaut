@@ -1,7 +1,6 @@
 package handler
 
 import (
-	"fmt"
 	"net/http"
 )
 
@@ -18,7 +17,7 @@ func (h *Handler) createPost(w http.ResponseWriter, r *http.Request) {
 	user := "37dd6886-fcb5-44aa-a4f7-925a187a9126"
 
 	p, err := h.service.CreatePost(r.Context(), channelID, req.Text, user)
-	fmt.Println("after service")
+
 	if err != nil {
 		writeError(w, http.StatusBadRequest, err)
 		return

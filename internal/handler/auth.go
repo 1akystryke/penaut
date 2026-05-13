@@ -19,17 +19,6 @@ func (h *Handler) auth(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, err)
 		return
 	}
-	cookie := http.Cookie{
-		Name:     "user",
-		Value:    user.Email,
-		Path:     "/",
-		MaxAge:   3600,
-		HttpOnly: true,
-		Secure:   true,
-		SameSite: http.SameSiteLaxMode,
-	}
-
-	http.SetCookie(w, &cookie)
 
 	token, err := h.service.MakeToken(ctx, user.ID)
 	if err != nil {

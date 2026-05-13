@@ -30,8 +30,8 @@ func (s *Store) ListUsers(ctx context.Context) ([]model.User, error) {
 func (s *Store) CheckPassword(ctx context.Context, email string, passwordHash string) (*model.User, error) {
 	//rows, err := s.db.Query(ctx, `SELECT id, name, email FROM users ORDER BY created_at DESC`)
 	rows, err := s.db.Query(ctx,
-		`Select id, name, email FROM users
-			where email = $1 and password_hash = $2
+		`Select id, name, email,password_hash FROM users as u
+			where email = $1 and password_hash = $2 
 			LIMIT 1`,
 		email, passwordHash,
 	)
