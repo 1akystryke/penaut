@@ -23,7 +23,8 @@ func (s *Store) GetToken(ctx context.Context, token string) (*model.Token, error
 		`SELECT t.*
 		 FROM users as u
 		 left join tokens as t
-			on t.user_id=u.id and token = $1
+			on t.user_id=u.id 
+		where t.token = $1
 		 LIMIT 1`,
 		token,
 	)

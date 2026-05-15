@@ -33,3 +33,15 @@ func (s *Service) CheckPassword(ctx context.Context, email string, passwordHash 
 	}
 	return user, err
 }
+
+func (s *Service) GetUserbyToken(ctx context.Context, token string) (*model.User, error) {
+	if token == "" {
+		return &model.User{}, errors.New("token required")
+	}
+	user, err := s.users.GetUserbyToken(ctx, token)
+	if err != nil {
+		fmt.Println(err)
+		return &model.User{}, errors.New("wrong token")
+	}
+	return user, err
+}

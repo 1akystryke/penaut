@@ -18,7 +18,7 @@ func (s *Store) CreateUser(ctx context.Context, name string, email string, passw
 }
 
 func (s *Store) ListUsers(ctx context.Context) ([]model.User, error) {
-	rows, err := s.db.Query(ctx, `SELECT id, name, email FROM users ORDER BY created_at DESC`)
+	rows, err := s.db.Query(ctx, `SELECT id, name, email,password_hash FROM users ORDER BY created_at DESC`)
 	if err != nil {
 		return nil, err
 	}
@@ -34,6 +34,28 @@ func (s *Store) CheckPassword(ctx context.Context, email string, passwordHash st
 			where email = $1 and password_hash = $2 
 			LIMIT 1`,
 		email, passwordHash,
+	)
+
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	userModel, err := pgx.CollectExactlyOneRow(rows, pgx.RowToStructByName[model.User])
+	return &userModel, err
+
+}
+
+func (s *Store) GetUserbyToken(ctx context.Context, token string) (*model.User, error) {
+	//rows, err := s.db.Query(ctx, `SELECT id, name, email FROM users ORDER BY created_at DESC`)
+
+	rows, err := s.db.Query(ctx,
+		`select u.id, u.name, u.email,u.password_hash
+		FROM users as u left join tokens as t
+		on t.user_id = u.id
+		where t."token" = $1
+		limit 1
+		`,
+		token,
 	)
 
 	if err != nil {

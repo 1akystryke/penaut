@@ -10,6 +10,7 @@ type UserRepository interface {
 	CreateUser(ctx context.Context, name string, email string, passwordHash string) (model.User, error)
 	ListUsers(ctx context.Context) ([]model.User, error)
 	CheckPassword(ctx context.Context, email string, passwordHash string) (*model.User, error)
+	GetUserbyToken(ctx context.Context, token string) (*model.User, error)
 }
 
 type ChannelRepository interface {

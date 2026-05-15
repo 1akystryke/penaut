@@ -328,9 +328,9 @@ function connectWS(channelId){
   if(socket){
     socket.close()
   }
-
+  
   socket=new WebSocket(
-    `${WS}?channel_id=${channelId}`
+    `${WS}?channel_id=${channelId}&token=${token}`
   )
 
   socket.onmessage=(e)=>{

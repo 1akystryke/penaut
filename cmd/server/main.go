@@ -43,9 +43,11 @@ func main() {
 }
 
 func setupMiddleware(h *handler.Handler, s *service.Service) http.Handler {
+	authFunc := middleware.MakeAuthMiddleware(s, 30)
 	var handler http.Handler = h.Routes()
 	handler = middleware.Logging(handler)
-	handler = middleware.Auth(s, handler)
+	//handler = middleware.Auth(s, handler)
+	handler = authFunc(handler)
 	handler = middleware.CORS(handler)
 	return handler
 }

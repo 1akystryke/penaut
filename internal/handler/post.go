@@ -2,6 +2,7 @@ package handler
 
 import (
 	"net/http"
+	"strings"
 )
 
 func (h *Handler) createPost(w http.ResponseWriter, r *http.Request) {
@@ -14,8 +15,13 @@ func (h *Handler) createPost(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	user := "37dd6886-fcb5-44aa-a4f7-925a187a9126"
-
+	user, ok := strings.CutPrefix(r.Header.Get("Authorization"),
+		"Bearer ",
+	)
+	if !ok {
+		http.Error(w, "invalid authorization header", http.StatusUnauthorized)
+		return
+	}
 	p, err := h.service.CreatePost(r.Context(), channelID, req.Text, user)
 
 	if err != nil {

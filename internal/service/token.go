@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/rand"
 	"fmt"
+	"log"
 	"messenger/internal/model"
 	"time"
 )
@@ -23,10 +24,12 @@ func (s *Service) MakeToken(ctx context.Context, userId string) (model.Token, er
 func (s *Service) CheckToken(ctx context.Context, tokenString string, tokenLifeTimeMinutes int) (bool, error) {
 	token, err := s.tokens.GetToken(ctx, tokenString)
 	if err != nil {
+		log.Println("не найден токен " + token.Token)
 		return false, nil
 	}
 	timeDiffMin := int(time.Since(token.CreatedAt).Minutes())
 	if timeDiffMin > tokenLifeTimeMinutes {
+		log.Println("истек токен " + token.Token)
 		return false, nil
 	}
 	return true, nil

@@ -21,7 +21,7 @@ func (s *Store) CreatePost(ctx context.Context, channelID string, text string, u
 
 func (s *Store) ListPosts(ctx context.Context, channelID string) ([]model.Post, error) {
 	rows, err := s.db.Query(ctx,
-		`SELECT id, text, channel_id, created_at
+		`SELECT id, text, channel_id, author, created_at
 		 FROM posts
 		 WHERE channel_id = $1
 		 ORDER BY created_at`,
