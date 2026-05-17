@@ -57,7 +57,8 @@
 
 <script setup>
 import { ref, reactive, computed, watch, onMounted } from 'vue'
-
+import { authStore } from '@/stores/authStore.vue'
+const store = authStore()
 const DEFAULT_HOST='localhost:8080'
 const API=`http://${DEFAULT_HOST}`
 const WS=`ws://${DEFAULT_HOST}/ws`
@@ -115,6 +116,7 @@ async function tryLogin(){
         console.log("result",result)
         let token=typeof result==='string' ? result : result
         localStorage.setItem('token',token)
+        store.getAuth()
         alert('Logged in')
         
 

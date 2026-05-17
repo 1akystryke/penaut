@@ -5,8 +5,8 @@
 </template>
 <script setup>
     import { ref, reactive, computed, watch, onMounted } from 'vue'
-    import { authStore } from '@/stores/authStore.vue'
     import mainMessangerComponent from '@/components/mainMessangerComponent.vue'
+    import { authStore } from '@/stores/authStore.vue'
     const store = authStore()
     function dropAuth(){
         store.breakAuth()
