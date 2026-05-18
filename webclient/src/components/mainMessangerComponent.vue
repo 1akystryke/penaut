@@ -51,13 +51,13 @@
         >
           <template #prepend>
             <v-avatar size="40" color="surface-variant">
-              <v-icon>{{ channel.icon }}</v-icon>
+              <v-icon>{{"mdi-"+channel.icon }}</v-icon>
             </v-avatar>
           </template>
 
           <template #append>
             <div class="text-caption text-medium-emphasis">
-              {{ channel.time }}
+              {{ channel.type }}
             </div>
           </template>
         </v-list-item>
@@ -83,7 +83,7 @@
       >
         <template #prepend>
           <v-avatar size="36" color="surface-variant" class="mr-2">
-            <v-icon>{{ activeChannelData.icon }}</v-icon>
+            <v-icon>{{'mdi-'+ activeChannelData.icon }}</v-icon>
           </v-avatar>
           <div>
             <div class="text-h6">{{ activeChannelData.name }}</div>
@@ -94,8 +94,7 @@
         </template>
 
         <template #append>
-          <v-btn icon="mdi-phone" variant="text" />
-          <v-btn icon="mdi-video" variant="text" />
+          
           <v-btn icon="mdi-information-outline" variant="text" />
         </template>
       </v-app-bar>
@@ -110,39 +109,27 @@
         </div>
 
         <div v-else class="pa-4">
-          <div
-            v-for="message in activeMessages"
-            :key="message.id"
-            :class="['message-wrapper', message.isMine ? 'message-mine' : 'message-other']"
-          >
-            <!-- Аватар (только для чужих сообщений) -->
-            <v-avatar
-              v-if="!message.isMine"
+          <v-list class="overflow-y-auto">
+            <v-list-item v-for="message in messages"
+            :key="message.id">
+            <div v-if="!message.isMine">
+              <v-avatar
               size="32"
               class="mr-2"
               color="surface-variant"
-            >
-              <v-icon size="18">{{ message.avatar }}</v-icon>
-            </v-avatar>
-
-            <div>
-              <!-- Имя отправителя -->
-              <div
-                v-if="!message.isMine"
-                class="text-caption text-medium-emphasis mb-1"
               >
-                {{ message.sender }}
-              </div>
-
-              <!-- Сообщение -->
-              <div class="message-bubble">
-                {{ message.text }}
-                <div class="text-caption text-disabled text-right mt-1">
-                  {{ message.time }}
-                </div>
-              </div>
+              <v-icon size="18" :icon="'mdi-'+message.avatar"></v-icon>
+            </v-avatar>
+            {{ message.sender }}
             </div>
-          </div>
+            
+            <v-list-item-content :class="{ 'text-right': message.isMine }">
+              <v-list-item-title>{{ message.text }} <br/>
+                {{ formatMessengerDate(message.time) }}
+              </v-list-item-title>
+            </v-list-item-content>
+          </v-list-item>
+          </v-list>
         </div>
       </div>
 
@@ -159,11 +146,10 @@
           density="compact"
           placeholder="Введите сообщение..."
           hide-details
-          @keyup.enter="sendMessage"
+          @keyup.enter="sendMessage2"
         >
           <template #prepend-inner>
             <v-btn icon="mdi-emoticon-outline" variant="text" size="small" />
-            <v-btn icon="mdi-paperclip" variant="text" size="small" />
           </template>
         </v-text-field>
         <v-btn
@@ -171,7 +157,7 @@
           color="primary"
           variant="text"
           class="ml-2"
-          @click="sendMessage"
+          @click="sendMessage2"
           :disabled="!newMessage.trim()"
         />
       </v-footer>
@@ -181,15 +167,18 @@
 
 <script setup>
 import { ref, computed, watch, nextTick } from 'vue';
+import { authStore } from '@/stores/authStore.vue'
+const store = authStore()
+
 
 const drawer = ref(true);
 const activeChannel = ref(null);
 const searchQuery = ref('');
 const newMessage = ref('');
 const messagesContainer = ref(null);
-
+var socket = null
 // Тестовые данные каналов
-const channels = ref([
+const channelsList = ref([
   {
     id: 1,
     name: 'Общий',
@@ -225,34 +214,24 @@ const channels = ref([
 ]);
 
 // Тестовые сообщения для каналов
-const messages = ref({
-  1: [
-    { id: 1, text: 'Всем привет!', sender: 'Анна', avatar: 'mdi-account', time: '12:00', isMine: false },
-    { id: 2, text: 'Привет! Как дела?', sender: 'Вы', time: '12:05', isMine: true },
-    { id: 3, text: 'Отлично! Работаю над проектом', sender: 'Анна', avatar: 'mdi-account', time: '12:10', isMine: false },
-    { id: 4, text: 'Здорово, я тоже', sender: 'Вы', time: '12:15', isMine: true }
-  ],
-  2: [
-    { id: 1, text: 'Кто-нибудь может помочь с багом?', sender: 'Петр', avatar: 'mdi-account', time: '11:30', isMine: false },
-    { id: 2, text: 'Да, конечно. Что за проблема?', sender: 'Вы', time: '11:35', isMine: true }
-  ],
-  3: [
-    { id: 1, text: 'Новые макеты в Figma', sender: 'Мария', avatar: 'mdi-account', time: '10:00', isMine: false }
-  ],
-  4: []
-});
+const messages = ref([
+      { id: 1, text: 'Всем привет!', sender: 'Анна', avatar: 'mdi-account', time: '12:00', isMine: false },
+      { id: 2, text: 'Привет! Как дела?', sender: 'Вы', time: '12:05', isMine: true },
+      { id: 3, text: 'Отлично! Работаю над проектом', sender: 'Анна', avatar: 'mdi-account', time: '12:10', isMine: false },
+      { id: 4, text: 'Здорово, я тоже', sender: 'Вы', time: '12:15', isMine: true }
+  ]);
 
 // Фильтрация каналов по поиску
 const filteredChannels = computed(() => {
-  if (!searchQuery.value) return channels.value;
-  return channels.value.filter(channel =>
+  if (!searchQuery.value) return channelsList.value;
+  return channelsList.value.filter(channel =>
     channel.name.toLowerCase().includes(searchQuery.value.toLowerCase())
   );
 });
 
 // Активный канал
 const activeChannelData = computed(() => {
-  return channels.value.find(c => c.id === activeChannel.value);
+  return channelsList.value.find(c => c.id === activeChannel.value);
 });
 
 // Сообщения активного канала
@@ -264,9 +243,161 @@ const activeMessages = computed(() => {
 // Выбор канала
 function selectChannel(channelId) {
   activeChannel.value = channelId;
+  messages.value = getChannelMessages(channelId);
+  subscribeWebSocket(channelId);
+
   scrollToBottom();
+  
+}
+function subscribeWebSocket(channelId){
+
+  if(socket){
+    socket.close()
+  }
+  
+  socket=new WebSocket(
+    `${store.WS}?channel_id=${channelId}&token=${store.token}`
+  )
+
+  socket.onmessage=(e)=>{
+    const data=JSON.parse(e.data)
+
+    if(data.error){
+      alert(data.error)
+      return
+    }
+
+    data.time = parseCustomDate(data.created_at)
+    data.sender = data.user_name
+    data.avatar = 'peanut-outline'
+    if (data.author==store.meId){
+      data.isMine = true
+    }
+    else{
+      data.isMine = false
+
+    }
+
+
+    messages.value.push(data)
+    scrollToBottom()
+  }
+
+  socket.onerror=()=>{
+    showError('WebSocket error')
+  }
 }
 
+function parseCustomDate(dateString) {
+    // Просто используем встроенный парсер, так как формат ISO 8601 с микросекундами
+    // JS Date API понимает этот формат (микросекунды просто игнорируются)
+    const date = new Date(dateString);
+    
+    // Проверка на валидность
+    if (isNaN(date.getTime())) {
+        throw new Error('Invalid date format');
+    }
+    
+    return date;
+}
+
+async function request(path,options={}){
+  const headers={
+    'Content-Type':'application/json',
+    ...(options.headers||{})
+  }
+  
+  if(store.status){
+    headers.Authorization=`Bearer ${store.token}`
+  }
+  const r=await fetch(store.API+path,{
+    ...options,
+    headers
+  })
+
+  const data=await r.json().catch(()=>({}))
+
+  if(!r.ok){
+    throw new Error(data.error||'Request failed')
+  }
+
+  return data
+}
+
+async function loadChannels(){
+  try{
+    let channels = await request('/channels') 
+    
+    channelsList.value = []
+    channels.forEach(elem => {
+      elem.icon = 'peanut'
+    })
+    channelsList.value = channels
+  }catch(e){
+    alert(e.message)
+  }
+}
+function formatMessengerDate(dateString) {
+    const date = new Date(dateString);
+    const now = new Date();
+    
+    // Проверка на валидность
+    if (isNaN(date.getTime())) {
+        throw new Error('Invalid date');
+    }
+    
+    // Разница в миллисекундах
+    const diffMs = now - date;
+    const diffSeconds = Math.floor(diffMs / 1000);
+    const diffMinutes = Math.floor(diffSeconds / 60);
+    const diffHours = Math.floor(diffMinutes / 60);
+    const diffDays = Math.floor(diffHours / 24);
+    
+    // Если прошло меньше 24 часов
+    if (diffDays < 1) {
+        // Форматируем время: HH:MM
+        const hours = date.getHours().toString().padStart(2, '0');
+        const minutes = date.getMinutes().toString().padStart(2, '0');
+        return `${hours}:${minutes}`;
+    }
+    
+    // Если прошло 1 день или больше - краткая дата + время
+    // Формат: ДД.ММ ГГГГ, ЧЧ:ММ (как в WhatsApp/Telegram)
+    const day = date.getDate().toString().padStart(2, '0');
+    const month = (date.getMonth() + 1).toString().padStart(2, '0');
+    const year = date.getFullYear();
+    const hours = date.getHours().toString().padStart(2, '0');
+    const minutes = date.getMinutes().toString().padStart(2, '0');
+    
+    // Для текущего года можно не показывать год (опционально)
+    if (year === now.getFullYear()) {
+        return `${day}.${month} в ${hours}:${minutes}`;
+    }
+    
+    return `${day}.${month}.${year} в ${hours}:${minutes}`;
+}
+async function getChannelMessages(channelId){
+  try{
+    const posts=await request(`/channels/${channelId}/posts`)
+
+    posts.forEach(element => {
+      element.time = parseCustomDate(element.created_at)
+      element.sender = element.user_name
+      element.avatar = 'peanut-outline'
+      if (element.author==store.meId){
+        element.isMine = true
+      }
+      else{
+        element.isMine = false
+
+      }
+    });
+
+    messages.value = posts
+  }catch(e){
+    alert(e.message)
+  }
+}
 // Отправка сообщения
 function sendMessage() {
   if (!newMessage.value.trim() || !activeChannel.value) return;
@@ -292,6 +423,41 @@ function sendMessage() {
   newMessage.value = '';
   scrollToBottom();
 }
+async function sendMessage2(){
+
+  const text=newMessage.value.trim()
+
+  if(!text){
+    return
+  }
+
+  try{
+
+    // websocket first
+    if(socket && socket.readyState===1){
+
+      socket.send(JSON.stringify({text}))
+
+    }else{
+
+      // fallback REST
+      await request(
+        `/channels/${activeChannel.value.id}/posts`,
+        {
+          method:'POST',
+          body:JSON.stringify({text})
+        }
+      )
+
+      await loadMessages(activeChannel.value.id)
+    }
+
+    newMessage.value=''
+
+  }catch(e){
+    alert(e.message)
+  }
+}
 
 // Функция для добавления канала (заглушка)
 function addChannel() {
@@ -309,7 +475,7 @@ function addChannel() {
     messages.value[newChannel.id] = [];
   }
 }
-
+loadChannels()
 // Прокрутка вниз
 function scrollToBottom() {
   nextTick(() => {
@@ -319,64 +485,3 @@ function scrollToBottom() {
   });
 }
 </script>
-
-<style scoped>
-.chat-main {
-  height: 100vh;
-  display: flex;
-  flex-direction: column;
-}
-
-.channel-drawer {
-  height: 100vh;
-}
-
-.messages-container {
-  flex: 1;
-  overflow-y: auto;
-  background-color: rgb(var(--v-theme-surface));
-}
-
-.chat-header {
-  position: sticky;
-  top: 0;
-  z-index: 1;
-}
-
-.chat-footer {
-  position: sticky;
-  bottom: 0;
-  background-color: rgb(var(--v-theme-surface));
-}
-
-.message-wrapper {
-  display: flex;
-  align-items: flex-start;
-  margin-bottom: 16px;
-}
-
-.message-mine {
-  justify-content: flex-end;
-}
-
-.message-bubble {
-  max-width: 70%;
-  padding: 8px 16px;
-  border-radius: 16px;
-  background-color: rgb(var(--v-theme-primary));
-  color: white;
-}
-
-.message-other .message-bubble {
-  background-color: rgb(var(--v-theme-surface-variant));
-  color: inherit;
-}
-
-.message-mine .message-bubble {
-  border-bottom-right-radius: 4px;
-}
-
-.message-other .message-bubble {
-  border-bottom-left-radius: 4px;
-}
-</style>

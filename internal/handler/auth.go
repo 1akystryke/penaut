@@ -1,6 +1,8 @@
 package handler
 
-import "net/http"
+import (
+	"net/http"
+)
 
 func (h *Handler) auth(w http.ResponseWriter, r *http.Request) {
 	var req struct {
@@ -21,9 +23,17 @@ func (h *Handler) auth(w http.ResponseWriter, r *http.Request) {
 	}
 
 	token, err := h.service.MakeToken(ctx, user.ID)
+
+	me := map[string]interface{}{
+		"id":    user.ID,
+		"name":  user.Name,
+		"token": token.Token,
+	}
+
 	if err != nil {
 		writeError(w, http.StatusBadRequest, err)
 		return
 	}
-	writeJSON(w, http.StatusCreated, token.Token)
+
+	writeJSON(w, http.StatusCreated, me)
 }

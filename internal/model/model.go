@@ -12,6 +12,7 @@ type User struct {
 type Channel struct {
 	ID   string `json:"id" db:"id"`
 	Type string `json:"type" db:"type"`
+	Name string `json:"name" db:"name"`
 }
 
 type Post struct {
@@ -19,6 +20,7 @@ type Post struct {
 	Text      string    `json:"text" db:"text"`
 	ChannelID string    `json:"channel_id" db:"channel_id"`
 	UserID    string    `json:"author" db:"author"`
+	UserName  string    `json:"user_name" db:"author_name"`
 	CreatedAt time.Time `json:"created_at" db:"created_at"`
 }
 

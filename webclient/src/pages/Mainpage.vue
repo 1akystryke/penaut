@@ -1,6 +1,6 @@
 <template>
     <mainMessangerComponent/>
-    <v-btn @click="dropAuth">drop auth</v-btn>
+    <v-btn @click="dropAuth">Logout</v-btn>
 
 </template>
 <script setup>

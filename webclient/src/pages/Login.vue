@@ -73,6 +73,7 @@ async function hashPassword(password) {
     const hashBuffer = await crypto.subtle.digest('SHA-256', data);
     const hashArray = Array.from(new Uint8Array(hashBuffer));
     const hashHex = hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+    console.log("hash pwd " + hashHex)
     return hashHex;
 }
 
@@ -91,7 +92,6 @@ async function request(path,options={}){
     ...options,
     headers
   })
-
   const data=await r.json().catch(()=>({}))
 
   if(!r.ok){
@@ -113,11 +113,12 @@ async function tryLogin(){
                 pwd:hash
             })
         })
-        console.log("result",result)
-        let token=typeof result==='string' ? result : result
-        localStorage.setItem('token',token)
+        console.log("result ",result)
+        localStorage.setItem('token',result.token )
+        localStorage.setItem('meName',result.name )
+        localStorage.setItem('meId',result.id )
         store.getAuth()
-        alert('Logged in')
+        
         
 
     }
