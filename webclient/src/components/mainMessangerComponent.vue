@@ -21,7 +21,7 @@
     <v-dialog v-model="channelInfoDialog">
       <v-col>
       <v-card>
-        <v-card-title>Информация о канале {{ activeChannelData.name }}</v-card-title>
+        <v-card-title>{{  activeChannelData.name}}</v-card-title>
         <v-card-item>
           <v-list>
             <v-list-item>
@@ -33,7 +33,7 @@
             <v-list-item>
               Члены: 
               <div v-for="member in activeChannelMembers">{{ member["name"] }}</div>
-              <v-btn @click="addUserDialogOpen">Добавить</v-btn>
+              <v-btn v-if="activeChannelData['type']!='direct'" @click="addUserDialogOpen">Добавить</v-btn>
             </v-list-item>
           </v-list>
           
