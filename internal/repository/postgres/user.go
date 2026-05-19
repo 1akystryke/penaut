@@ -18,7 +18,7 @@ func (s *Store) CreateUser(ctx context.Context, name string, email string, passw
 }
 
 func (s *Store) ListUsers(ctx context.Context) ([]model.User, error) {
-	rows, err := s.db.Query(ctx, `SELECT id, name, email,password_hash FROM users ORDER BY created_at DESC`)
+	rows, err := s.db.Query(ctx, `SELECT id, name, email,'penis' as password_hash FROM users ORDER BY created_at DESC`)
 	if err != nil {
 		return nil, err
 	}

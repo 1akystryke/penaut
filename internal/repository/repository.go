@@ -15,7 +15,7 @@ type UserRepository interface {
 
 type ChannelRepository interface {
 	CreateChannel(ctx context.Context, channelType string, channelName string) (model.Channel, error)
-	ListChannels(ctx context.Context) ([]model.Channel, error)
+	ListChannels(ctx context.Context, userId string) ([]model.Channel, error)
 }
 
 type MembershipRepository interface {

@@ -1,6 +1,9 @@
 package handler
 
-import "net/http"
+import (
+	"net/http"
+	"strings"
+)
 
 func (h *Handler) addMember(w http.ResponseWriter, r *http.Request) {
 	channelID := r.PathValue("channel_id")
@@ -11,8 +14,14 @@ func (h *Handler) addMember(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, err)
 		return
 	}
-
-	m, err := h.service.AddMember(r.Context(), req.UserID, channelID)
+	token, ok := strings.CutPrefix(r.Header.Get("Authorization"),
+		"Bearer ",
+	)
+	if !ok {
+		http.Error(w, "invalid authorization header", http.StatusUnauthorized)
+		return
+	}
+	m, err := h.service.AddMember(r.Context(), req.UserID, channelID, token)
 	if err != nil {
 		writeError(w, http.StatusBadRequest, err)
 		return

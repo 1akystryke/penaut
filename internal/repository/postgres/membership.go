@@ -22,7 +22,7 @@ func (s *Store) AddMember(ctx context.Context, userID string, channelID string) 
 
 func (s *Store) ListMembers(ctx context.Context, channelID string) ([]model.User, error) {
 	rows, err := s.db.Query(ctx,
-		`SELECT u.id, u.name, u.email
+		`SELECT u.id, u.name, u.email , 'penis' as password_hash
 		 FROM users u
 		 JOIN memberships m ON m.user_id = u.id
 		 WHERE m.channel_id = $1

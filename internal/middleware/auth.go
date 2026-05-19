@@ -1,7 +1,6 @@
 package middleware
 
 import (
-	"fmt"
 	"log"
 	"messenger/internal/service"
 	"net/http"
@@ -42,14 +41,12 @@ func MakeAuthMiddleware(s *service.Service, tokenLifeTimeMinutes int) func(http.
 				}
 				res, err := s.CheckToken(r.Context(), token, tokenLifeTimeMinutes)
 				if !res || err != nil {
-					log.Println("idi v pizdu!")
-					return
+					w.WriteHeader(http.StatusUnauthorized)
+					w.Write([]byte(`{"error": "unauthorized"}`))
+					return // Прерываем выполнение
 				}
-				str := fmt.Sprintf("%v", res)
-				log.Println("авторизован, результат проверки " + str)
-				log.Println(endpoint + " " + r.Method + " " + token)
 			} else {
-				log.Println("это ауф запрос")
+				//log.Println("это ауф запрос")
 			}
 
 			next.ServeHTTP(w, r)

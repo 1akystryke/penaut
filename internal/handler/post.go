@@ -15,14 +15,14 @@ func (h *Handler) createPost(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	user, ok := strings.CutPrefix(r.Header.Get("Authorization"),
+	token, ok := strings.CutPrefix(r.Header.Get("Authorization"),
 		"Bearer ",
 	)
 	if !ok {
 		http.Error(w, "invalid authorization header", http.StatusUnauthorized)
 		return
 	}
-	p, err := h.service.CreatePost(r.Context(), channelID, req.Text, user)
+	p, err := h.service.CreatePost(r.Context(), channelID, req.Text, token)
 
 	if err != nil {
 		writeError(w, http.StatusBadRequest, err)

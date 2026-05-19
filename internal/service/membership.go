@@ -3,14 +3,32 @@ package service
 import (
 	"context"
 	"errors"
-	"strings"
-
+	"fmt"
 	"messenger/internal/model"
+	"strings"
 )
 
-func (s *Service) AddMember(ctx context.Context, userID string, channelID string) (model.Membership, error) {
+func (s *Service) AddMember(ctx context.Context, userID string, channelID string, requestorToken string) (model.Membership, error) {
 	userID = strings.TrimSpace(userID)
 	channelID = strings.TrimSpace(channelID)
+	requestor, err := s.users.GetUserbyToken(ctx, requestorToken)
+	if err != nil {
+		fmt.Println(err)
+		return model.Membership{}, errors.New("wrong token")
+	}
+
+	currentMembersList, err := s.memberships.ListMembers(ctx, channelID)
+
+	loopBraker := false
+	for _, v := range currentMembersList {
+		if v.ID == requestor.ID {
+			loopBraker = true
+		}
+	}
+	if !loopBraker {
+		return model.Membership{}, errors.New("requestor is not in channel")
+	}
+
 	if userID == "" {
 		return model.Membership{}, errors.New("user_id is required")
 	}

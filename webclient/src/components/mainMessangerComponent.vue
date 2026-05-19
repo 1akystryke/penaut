@@ -1,5 +1,80 @@
 <template>
   <v-app>
+    <v-dialog v-model="createChannelDialog">
+      <v-col>
+      <v-card>
+        <v-card-title>Создать канал</v-card-title>
+        <v-card-item>
+          <v-text-field
+          v-model="newChannelName"
+          density="compact"
+          variant="outlined"
+          label="Название"
+        ></v-text-field>
+        <v-select label="Тип" v-model="newChannelType" :items="channelTypes"></v-select>
+        <v-btn @click="addChannel">Создать</v-btn>
+      </v-card-item>
+      </v-card>
+      </v-col>
+    </v-dialog>
+
+    <v-dialog v-model="channelInfoDialog">
+      <v-col>
+      <v-card>
+        <v-card-title>Информация о канале {{ activeChannelData.name }}</v-card-title>
+        <v-card-item>
+          <v-list>
+            <v-list-item>
+              Тип канала: {{ activeChannelData["type"] }}
+            </v-list-item>
+            <v-list-item>
+              ID канала: {{ activeChannelData["id"] }}
+            </v-list-item>
+            <v-list-item>
+              Члены: 
+              <div v-for="member in activeChannelMembers">{{ member["name"] }}</div>
+              <v-btn @click="addUserDialogOpen">Добавить</v-btn>
+            </v-list-item>
+          </v-list>
+          
+      </v-card-item>
+      </v-card>
+      </v-col>
+    </v-dialog>
+    <v-dialog v-model="addUserDialog">
+      <v-card>
+        <v-card-title>Добавить пользователя в канал {{ activeChannelData["name"] }}</v-card-title>
+        <v-card-item><v-select 
+          :items="usersList" 
+          item-title="name"
+          item-value="id"  
+          v-model="selectedUserToAdd"
+          >
+        </v-select></v-card-item>
+        <v-card-item ><v-btn @click="sumbitAddUser">apply</v-btn></v-card-item>
+      </v-card>
+    </v-dialog>
+    
+    <v-dialog v-model="createDirectDialog">
+      <v-col>
+      <v-card>
+        <v-card-title>Создать переписку</v-card-title>
+        <v-card-item>
+          <v-select
+          v-model="newDirectId"
+          :items="usersList" 
+          item-title="name"
+          item-value="id"  
+          density="compact"
+          variant="outlined"
+          label="С кем?"
+        ></v-select>
+        <v-btn @click="addDirect">Создать</v-btn>
+      </v-card-item>
+      </v-card>
+      </v-col>
+    </v-dialog>
+
     <v-navigation-drawer
       v-model="drawer"
       width="320"
@@ -7,68 +82,136 @@
       class="channel-drawer"
     >
       <!-- Заголовок панели каналов -->
-      <v-list-item
-        class="pa-4"
-        title="Каналы"
-        prepend-icon="mdi-message-outline"
-      >
-        <template #append>
-          <v-btn
-            icon="mdi-plus"
-            variant="text"
-            size="small"
-            @click="addChannel"
-          />
-        </template>
-      </v-list-item>
-
-      <v-divider />
-
-      <!-- Поиск каналов -->
-      <div class="pa-2">
-        <v-text-field
-          v-model="searchQuery"
-          density="compact"
-          variant="outlined"
-          placeholder="Поиск каналов..."
-          prepend-inner-icon="mdi-magnify"
-          hide-details
-          clearable
-        />
-      </div>
-
-      <!-- Список каналов -->
-      <v-list nav density="compact">
+       <v-btn @click="sidePanelMode=`channels`" >Каналы</v-btn><v-btn @click="sidePanelMode=`directs`;getUsers()">Личные сообщения</v-btn>
+       <div v-if="sidePanelMode===`channels`">
         <v-list-item
-          v-for="channel in filteredChannels"
-          :key="channel.id"
-          :value="channel.id"
-          :title="channel.name"
-          :subtitle="channel.lastMessage"
-          :active="activeChannel === channel.id"
-          @click="selectChannel(channel.id)"
-          color="primary"
+          class="pa-4"
+          title="Каналы"
+          prepend-icon="mdi-account-group"
         >
-          <template #prepend>
-            <v-avatar size="40" color="surface-variant">
-              <v-icon>{{"mdi-"+channel.icon }}</v-icon>
-            </v-avatar>
-          </template>
-
           <template #append>
-            <div class="text-caption text-medium-emphasis">
-              {{ channel.type }}
-            </div>
+            <v-btn
+              icon="mdi-plus"
+              variant="text"
+              size="small"
+              @click="createChannelDialog=true"
+            />
           </template>
         </v-list-item>
-      </v-list>
 
-      <!-- Если каналов нет -->
-      <div
-        v-if="filteredChannels.length === 0"
-        class="text-center pa-4 text-medium-emphasis"
-      >
-        Каналы не найдены
+        <v-divider />
+
+        <!-- Поиск каналов -->
+        <div class="pa-2">
+          <v-text-field
+            v-model="searchQuery"
+            density="compact"
+            variant="outlined"
+            placeholder="Поиск каналов..."
+            prepend-inner-icon="mdi-magnify"
+            hide-details
+            clearable
+          />
+        </div>
+
+        <!-- Список каналов -->
+        <v-list nav density="compact">
+          <v-list-item
+            v-for="channel in filteredChannels"
+            :key="channel.id"
+            :value="channel.id"
+            :title="channel.name"
+            :subtitle="channel.lastMessage"
+            :active="activeChannel === channel.id"
+            @click="selectChannel(channel.id)"
+            color="primary"
+          >
+            <template #prepend>
+              <v-avatar size="40" color="surface-variant">
+                <v-icon>{{"mdi-"+channel.icon }}</v-icon>
+              </v-avatar>
+            </template>
+
+            <template #append>
+              <div class="text-caption text-medium-emphasis">
+                {{ channel.type }}
+              </div>
+            </template>
+          </v-list-item>
+        </v-list>
+
+        <!-- Если каналов нет -->
+        <div
+          v-if="filteredChannels.length === 0"
+          class="text-center pa-4 text-medium-emphasis"
+        >
+          Каналы не найдены
+        </div>
+      </div>
+      <div v-if="sidePanelMode===`directs`">
+        <v-list-item
+          class="pa-4"
+          title="Личные сообщения"
+          prepend-icon="mdi-account"
+        >
+          <template #append>
+            <v-btn
+              icon="mdi-plus"
+              variant="text"
+              size="small"
+              @click="createDirectDialog=true"
+            />
+          </template>
+        </v-list-item>
+
+        <v-divider />
+
+        <!-- Поиск каналов -->
+        <div class="pa-2">
+          <v-text-field
+            v-model="searchQuery"
+            density="compact"
+            variant="outlined"
+            placeholder="Поиск каналов..."
+            prepend-inner-icon="mdi-magnify"
+            hide-details
+            clearable
+          />
+        </div>
+
+        <!-- Список каналов -->
+        <v-list nav density="compact">
+          <v-list-item
+            v-for="channel in filteredDirects"
+            :key="channel.id"
+            :value="channel.id"
+            :title="channel.directName"
+            :subtitle="channel.lastMessage"
+            :active="activeChannel === channel.id"
+            @click="selectChannel(channel.id)"
+            color="primary"
+          >
+            <template #prepend>
+              <v-avatar size="40" color="surface-variant">
+                <v-icon>{{"mdi-"+channel.icon }}</v-icon>
+              </v-avatar>
+            </template>
+
+            <template #append>
+              <div class="text-caption text-medium-emphasis">
+                {{ channel.type }}
+              </div>
+            </template>
+          </v-list-item>
+        </v-list>
+
+        <!-- Если каналов нет -->
+        <div
+          v-if="filteredDirects.length === 0"
+          class="text-center pa-4 text-medium-emphasis"
+        >
+          Личных сообщений пока нет
+        </div>
       </div>
     </v-navigation-drawer>
 
@@ -86,16 +229,17 @@
             <v-icon>{{'mdi-'+ activeChannelData.icon }}</v-icon>
           </v-avatar>
           <div>
-            <div class="text-h6">{{ activeChannelData.name }}</div>
+            <div v-if="activeChannelData.type!=`direct`" class="text-h6">{{ activeChannelData.name }}</div>
+            <div v-if="activeChannelData.type==`direct`" class="text-h6">{{ activeChannelData.directName }}</div>
             <div class="text-caption text-medium-emphasis">
-              {{ activeChannelData.members }} участников
+              {{ activeChannelMembers.length }} участников
             </div>
           </div>
         </template>
 
         <template #append>
           
-          <v-btn icon="mdi-information-outline" variant="text" />
+          <v-btn icon="mdi-information-outline" variant="text" @click="showChannelInfo" />
         </template>
       </v-app-bar>
 
@@ -170,64 +314,51 @@ import { ref, computed, watch, nextTick } from 'vue';
 import { authStore } from '@/stores/authStore.vue'
 const store = authStore()
 
+const addUserDialog = ref(false);
+const usersList = ref([])
+const selectedUserToAdd = ref(null)
 
+const createChannelDialog = ref(false);
 const drawer = ref(true);
 const activeChannel = ref(null);
+const activeChannelMembers = ref([]);
 const searchQuery = ref('');
 const newMessage = ref('');
 const messagesContainer = ref(null);
-var socket = null
-// Тестовые данные каналов
-const channelsList = ref([
-  {
-    id: 1,
-    name: 'Общий',
-    icon: 'mdi-pound',
-    lastMessage: 'Привет всем!',
-    time: '12:30',
-    members: 128
-  },
-  {
-    id: 2,
-    name: 'Разработка',
-    icon: 'mdi-code-tags',
-    lastMessage: 'Нужно поправить баг в продакшене',
-    time: '11:45',
-    members: 45
-  },
-  {
-    id: 3,
-    name: 'Дизайн',
-    icon: 'mdi-palette-outline',
-    lastMessage: 'Новые макеты готовы',
-    time: '10:20',
-    members: 23
-  },
-  {
-    id: 4,
-    name: 'Случайное',
-    icon: 'mdi-dice-5',
-    lastMessage: 'Кто смотрел новый фильм?',
-    time: '09:15',
-    members: 56
-  }
-]);
+const newChannelName = ref("");
+const newChannelType = ref("public")
+const channelTypes = ref(["public","private"])
+const channelsList = ref([])
+const messages = ref([])
+const channelInfoDialog = ref(false);
+const sidePanelMode = ref('channels')
 
-// Тестовые сообщения для каналов
-const messages = ref([
-      { id: 1, text: 'Всем привет!', sender: 'Анна', avatar: 'mdi-account', time: '12:00', isMine: false },
-      { id: 2, text: 'Привет! Как дела?', sender: 'Вы', time: '12:05', isMine: true },
-      { id: 3, text: 'Отлично! Работаю над проектом', sender: 'Анна', avatar: 'mdi-account', time: '12:10', isMine: false },
-      { id: 4, text: 'Здорово, я тоже', sender: 'Вы', time: '12:15', isMine: true }
-  ]);
+const createDirectDialog = ref(false)
+const directList = ref([])
+const newDirectId = ref(null)
+
+var socket = null
+
+
 
 // Фильтрация каналов по поиску
 const filteredChannels = computed(() => {
-  if (!searchQuery.value) return channelsList.value;
+  if (!searchQuery.value) return channelsList.value.filter(channel => channel.type != 'direct');
   return channelsList.value.filter(channel =>
-    channel.name.toLowerCase().includes(searchQuery.value.toLowerCase())
+    channel.name.toLowerCase().includes(searchQuery.value.toLowerCase()) && channel.type != 'direct'
   );
 });
+
+
+
+const filteredDirects = computed(() => {
+  if (!searchQuery.value) return channelsList.value.filter(channel => channel.type === 'direct');
+  return channelsList.value.filter(channel =>
+    channel.directName.toLowerCase().includes(searchQuery.value.toLowerCase()) && channel.type === 'direct'
+  );
+});
+
+
 
 // Активный канал
 const activeChannelData = computed(() => {
@@ -240,15 +371,95 @@ const activeMessages = computed(() => {
   return messages.value[activeChannel.value] || [];
 });
 
+
+function extractDirectName(directRawName){
+  const users = directRawName.split("_");
+
+  for (const user of users) {
+      
+      if (user !== store.meId) {
+        for (const searchUser of usersList.value){
+          if (searchUser.id==user){
+            return searchUser.name
+          }
+        }
+      }
+  }
+
+}
+// users = directRawName.split("_")
+// for user in users:
+//   if user.ID != store.meId:
+//     return user.Name
+    
+
+
+
+async function getUsers(){
+  try{
+    usersList.value = await request('/users')
+  }catch(e){
+    alert(e.message)
+  }
+}
+
+async function addDirect() {
+  try{
+    await request('/users/'+newDirectId.value+'/direct',{
+      method:'POST',
+      body:JSON.stringify({"abobe":"obeba"})
+    })
+    createDirectDialog.value=false
+  }catch(e){
+    alert(e.message)
+  }
+}
+
+async function sumbitAddUser(){
+  
+  try{
+    await request('/channels/'+activeChannel.value+'/members',{
+      method:'POST',
+      body:JSON.stringify({
+        "user_id":selectedUserToAdd.value
+      })
+    })
+    getChannelMembers(activeChannel.value)
+    addUserDialog.value=false
+  }catch(e){
+    alert(e.message)
+  }
+
+
+}
+
+function addUserDialogOpen(){
+  getUsers()
+  addUserDialog.value=true
+}
 // Выбор канала
 function selectChannel(channelId) {
   activeChannel.value = channelId;
   messages.value = getChannelMessages(channelId);
   subscribeWebSocket(channelId);
-
+  getChannelMembers(channelId)
   scrollToBottom();
   
 }
+
+function showChannelInfo(){
+  channelInfoDialog.value = true
+}
+
+async function getChannelMembers(channelId){
+  try{
+    const members=await request(`/channels/${channelId}/members`)
+    activeChannelMembers.value = members
+  }catch(e){
+    alert(e.message)
+  }
+}
+
 function subscribeWebSocket(channelId){
 
   if(socket){
@@ -316,7 +527,9 @@ async function request(path,options={}){
   })
 
   const data=await r.json().catch(()=>({}))
-
+  if (r.status===401){
+    store.breakAuth()
+  }
   if(!r.ok){
     throw new Error(data.error||'Request failed')
   }
@@ -331,6 +544,8 @@ async function loadChannels(){
     channelsList.value = []
     channels.forEach(elem => {
       elem.icon = 'peanut'
+      if (elem.type==="direct") elem.directName = extractDirectName(elem.name)
+      else elem.directName = ""
     })
     channelsList.value = channels
   }catch(e){
@@ -398,31 +613,7 @@ async function getChannelMessages(channelId){
     alert(e.message)
   }
 }
-// Отправка сообщения
-function sendMessage() {
-  if (!newMessage.value.trim() || !activeChannel.value) return;
 
-  const now = new Date();
-  const time = `${now.getHours()}:${String(now.getMinutes()).padStart(2, '0')}`;
-
-  messages.value[activeChannel.value].push({
-    id: Date.now(),
-    text: newMessage.value,
-    sender: 'Вы',
-    time: time,
-    isMine: true
-  });
-
-  // Обновляем последнее сообщение в канале
-  const channel = channels.value.find(c => c.id === activeChannel.value);
-  if (channel) {
-    channel.lastMessage = newMessage.value;
-    channel.time = time;
-  }
-
-  newMessage.value = '';
-  scrollToBottom();
-}
 async function sendMessage2(){
 
   const text=newMessage.value.trim()
@@ -460,21 +651,31 @@ async function sendMessage2(){
 }
 
 // Функция для добавления канала (заглушка)
-function addChannel() {
-  const name = prompt('Название канала:');
-  if (name) {
-    const newChannel = {
-      id: Date.now(),
-      name: name,
-      icon: 'mdi-pound',
-      lastMessage: 'Канал создан',
-      time: new Date().toLocaleTimeString().slice(0, 5),
-      members: 1
-    };
-    channels.value.push(newChannel);
-    messages.value[newChannel.id] = [];
+async function addChannel() {
+  if (newChannelName.value==""){
+    alert("заполните имя сначала")
+    return
   }
+  try{
+
+    await request('/channels',{
+      method:'POST',
+      body:JSON.stringify({
+        "type":newChannelType.value,
+        "name":newChannelName.value
+      })
+    })
+
+    await loadChannels()
+  createChannelDialog.value = false
+
+  }catch(e){
+    alert(e.message)
+  }
+
+
 }
+getUsers()
 loadChannels()
 // Прокрутка вниз
 function scrollToBottom() {
