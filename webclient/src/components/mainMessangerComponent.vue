@@ -82,7 +82,16 @@
       class="channel-drawer"
     >
       <!-- Заголовок панели каналов -->
-       <v-btn @click="sidePanelMode=`channels`" >Каналы</v-btn><v-btn @click="sidePanelMode=`directs`;getUsers()">Личные сообщения</v-btn>
+       <v-row>
+        <v-btn-toggle>
+          <v-col cols="6">
+          <v-btn block @click="sidePanelMode=`channels`" >Каналы</v-btn>
+          </v-col>
+          <v-col cols="6">
+          <v-btn block @click="sidePanelMode=`directs`;getUsers()">Личные сообщения</v-btn>
+          </v-col>
+       </v-btn-toggle>
+       </v-row>
        <div v-if="sidePanelMode===`channels`">
         <v-list-item
           class="pa-4"
