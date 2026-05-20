@@ -10,6 +10,7 @@ import (
 	"messenger/internal/middleware"
 	"messenger/internal/repository/postgres"
 	"messenger/internal/service"
+	"messenger/internal/storage/minio"
 
 	"github.com/jackc/pgx/v5/pgxpool"
 )
@@ -24,6 +25,14 @@ func main() {
 	}
 	defer db.Close()
 
+	storage := minio.New(
+		"localhost:9000",
+		"minio",
+		"minio123",
+		"files",
+		false,
+	)
+
 	store := postgres.NewStore(db)
 	if getenv("INIT_DB", "true") == "true" {
 		if err := store.Init(ctx); err != nil {
@@ -31,7 +40,7 @@ func main() {
 		}
 	}
 
-	svc := service.New(store, store, store, store, store)
+	svc := service.New(store, store, store, store, store, store, *storage)
 
 	h := handler.New(svc)
 	handler := setupMiddleware(h, svc)

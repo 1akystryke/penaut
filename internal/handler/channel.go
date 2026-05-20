@@ -1,6 +1,7 @@
 package handler
 
 import (
+	"io"
 	"net/http"
 	"strings"
 )
@@ -63,4 +64,17 @@ func (h *Handler) listChannels(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	writeJSON(w, http.StatusOK, channels)
+}
+
+func (h *Handler) getChannelPic(w http.ResponseWriter, r *http.Request) {
+	channelID := r.PathValue("channel_id")
+	channel, err := h.service.GetChannelbyID(r.Context(), channelID)
+	picture, err := h.service.GetChannelPic(r.Context(), *channel)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, err)
+		return
+	}
+	w.Header().Set("Content-Type", "image/jpeg")
+	defer picture.Close()
+	io.Copy(w, picture)
 }

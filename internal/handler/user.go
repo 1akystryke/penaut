@@ -1,6 +1,9 @@
 package handler
 
-import "net/http"
+import (
+	"io"
+	"net/http"
+)
 
 func (h *Handler) createUser(w http.ResponseWriter, r *http.Request) {
 	var req struct {
@@ -28,4 +31,18 @@ func (h *Handler) listUsers(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	writeJSON(w, http.StatusOK, users)
+}
+
+func (h *Handler) getUserPic(w http.ResponseWriter, r *http.Request) {
+	userID := r.PathValue("user_id")
+	user, err := h.service.GetUserbyID(r.Context(), userID)
+	picture, err := h.service.GetUserPic(r.Context(), *user)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, err)
+		return
+	}
+
+	w.Header().Set("Content-Type", "image/webp")
+	defer picture.Close()
+	io.Copy(w, picture)
 }

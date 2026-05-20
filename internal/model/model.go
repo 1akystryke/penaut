@@ -7,12 +7,14 @@ type User struct {
 	Name         string `json:"name" db:"name"`
 	Email        string `json:"email" db:"email"`
 	PasswordHash string `json:"password_hash" db:"password_hash"`
+	PicturePath  string `json:"picture_path" db:"picture_path"`
 }
 
 type Channel struct {
-	ID   string `json:"id" db:"id"`
-	Type string `json:"type" db:"type"`
-	Name string `json:"name" db:"name"`
+	ID          string `json:"id" db:"id"`
+	Type        string `json:"type" db:"type"`
+	Name        string `json:"name" db:"name"`
+	PicturePath string `json:"picture_path" db:"picture_path"`
 }
 
 type Post struct {
@@ -32,4 +34,10 @@ type Token struct {
 	Token     string    `json:"token" db:"token"`
 	UserID    string    `json:"user_id" db:"user_id"`
 	CreatedAt time.Time `json:"created_at" db:"created_at"`
+}
+
+type Attachment struct {
+	FilePath string `json:"file_path" db:"file_path"`
+	PostID   string `json:"post_id" db:"post_id"`
+	FileType string `json:"file_type" db:"file_type"`
 }

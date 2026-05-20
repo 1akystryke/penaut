@@ -3,10 +3,12 @@ package service
 import (
 	"context"
 	"errors"
+	"fmt"
 	"log"
+	"messenger/internal/model"
 	"strings"
 
-	"messenger/internal/model"
+	minioSDK "github.com/minio/minio-go/v7"
 )
 
 func (s *Service) CreateChannel(ctx context.Context, channelType string, channelName string, authorToken string) (model.Channel, error) {
@@ -48,4 +50,22 @@ func (s *Service) CreateDirect(ctx context.Context, UserID string, authorToken s
 func (s *Service) ListChannels(ctx context.Context, requestorToken string) ([]model.Channel, error) {
 	user, _ := s.users.GetUserbyToken(ctx, requestorToken)
 	return s.channels.ListChannels(ctx, user.ID)
+}
+
+func (s *Service) GetChannelPic(ctx context.Context, channel model.Channel) (*minioSDK.Object, error) {
+	file, err := s.fileStorage.GetFile(ctx, channel.PicturePath)
+	return file, err
+
+}
+
+func (s *Service) GetChannelbyID(ctx context.Context, channelID string) (*model.Channel, error) {
+	if channelID == "" {
+		return &model.Channel{}, errors.New("channelID required")
+	}
+	user, err := s.channels.GetChannelbyID(ctx, channelID)
+	if err != nil {
+		fmt.Println(err)
+		return &model.Channel{}, errors.New("wrong token")
+	}
+	return user, err
 }

@@ -5,14 +5,16 @@ CREATE TABLE IF NOT EXISTS users (
     name TEXT NOT NULL,
     email TEXT NOT NULL UNIQUE,
     password_hash TEXT NOT NULL,
-    created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+    created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+    picture_path TEXT
 );
 
 CREATE TABLE IF NOT EXISTS channels (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     type TEXT NOT NULL CHECK (type IN ('direct', 'public', 'private')),
     name TEXT NOT NULL,
-    created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+    created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+    picture_path TEXT
 );
 
 CREATE TABLE IF NOT EXISTS posts (
@@ -35,6 +37,14 @@ CREATE TABLE IF NOT EXISTS tokens (
     user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
     created_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
+
+CREATE TABLE IF NOT EXISTS attachments (
+    file_path TEXT PRIMARY KEY NOT NULL,
+    post_id UUID NOT NULL REFERENCES posts(id) ON DELETE CASCADE,
+    file_type TEXT NOT NULL
+);
+
+
 
 CREATE INDEX IF NOT EXISTS posts_channel_id_created_at_idx ON posts(channel_id, created_at);
 CREATE INDEX IF NOT EXISTS memberships_user_id_idx ON memberships(user_id);
