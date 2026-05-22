@@ -12,6 +12,61 @@
           label="Название"
         ></v-text-field>
         <v-select label="Тип" v-model="newChannelType" :items="channelTypes"></v-select>
+        <div class="image-uploader">
+    <!-- Отображаем input только если изображение еще не выбрано -->
+    <v-file-input
+      v-if="!imagePreviewUrl"
+      label="Выберите изображение"
+      accept="image/*"
+      prepend-icon="mdi-camera"
+      variant="outlined"
+      @update:model-value="handleImageSelect"
+    ></v-file-input>
+
+    <!-- Если изображение выбрано, показываем превью -->
+    <div v-else>
+      <v-card class="mx-auto" max-width="400">
+        <!-- Блок с превью -->
+        <div class="position-relative">
+          <v-img
+            :src="imagePreviewUrl"
+            height="300"
+            cover
+            class="bg-grey-lighten-2"
+          >
+            <!-- Слот для overlay при желании -->
+          </v-img>
+          
+          <!-- Кнопки управления поверх изображения -->
+          <div class="image-actions">
+            <v-btn
+              icon="mdi-delete"
+              color="error"
+              size="small"
+              class="mr-2"
+              @click="removeImage"
+            ></v-btn>
+            <v-btn
+              icon="mdi-reload"
+              color="info"
+              size="small"
+              @click="replaceImage"
+            ></v-btn>
+          </div>
+        </div>
+        
+        <!-- Информация о файле -->
+        <v-card-text class="text-center">
+          <div class="text-subtitle-1 text-truncate">
+            {{ selectedFileName }}
+          </div>
+          <div class="text-caption text-grey">
+            {{ formatFileSize(selectedFileSize) }}
+          </div>
+        </v-card-text>
+      </v-card>
+    </div>
+  </div>
         <v-btn @click="addChannel">Создать</v-btn>
       </v-card-item>
       </v-card>
@@ -202,7 +257,8 @@
           >
             <template #prepend>
               <v-avatar size="40" color="surface-variant">
-                <v-icon>{{"mdi-"+channel.icon }}</v-icon>
+                
+                <v-img :src="channel.url"></v-img>
               </v-avatar>
             </template>
 
@@ -235,7 +291,7 @@
       >
         <template #prepend>
           <v-avatar size="36" color="surface-variant" class="mr-2">
-            <v-icon>{{'mdi-'+ activeChannelData.icon }}</v-icon>
+            <v-img :src="activeChannelData.url"></v-img>
           </v-avatar>
           <div>
             <div v-if="activeChannelData.type!=`direct`" class="text-h6">{{ activeChannelData.name }}</div>
@@ -271,7 +327,7 @@
               class="mr-2"
               color="surface-variant"
               >
-              <v-icon size="18" :icon="'mdi-'+message.avatar"></v-icon>
+              <v-img :src="activeChannelData.url"></v-img>
             </v-avatar>
             {{ message.sender }}
             </div>
@@ -341,9 +397,8 @@ const channelsList = ref([])
 const messages = ref([])
 const channelInfoDialog = ref(false);
 const sidePanelMode = ref('channels')
-
+const directPictures = ref({})
 const createDirectDialog = ref(false)
-const directList = ref([])
 const newDirectId = ref(null)
 
 var socket = null
@@ -379,7 +434,17 @@ const activeMessages = computed(() => {
   if (!activeChannel.value) return [];
   return messages.value[activeChannel.value] || [];
 });
+function extractDirectID(directRawName){
+  const users = directRawName.split("_");
 
+  for (const user of users) {
+      
+      if (user !== store.meId) {
+        return user
+      }
+  }
+
+}
 
 function extractDirectName(directRawName){
   const users = directRawName.split("_");
@@ -441,6 +506,25 @@ async function sumbitAddUser(){
 
 
 }
+
+async function loadImage(userID) {
+        try {
+            const response = await fetch(store.API + `/users/` + userID + `/pic`, {
+            headers: {
+                'Authorization': `Bearer ${store.token}`, // ваш заголовок
+                // или другие кастомные заголовки
+            }
+            })
+            
+            if (!response.ok) throw new Error('Ошибка загрузки')
+            
+            const blob = await response.blob()
+            return URL.createObjectURL(blob)
+        } catch (error) {
+            console.error('Не удалось загрузить аватар:', error)
+            return '' // или путь к заглушке
+        }
+    }
 
 function addUserDialogOpen(){
   getUsers()
@@ -553,7 +637,11 @@ async function loadChannels(){
     channelsList.value = []
     channels.forEach(elem => {
       elem.icon = 'peanut'
-      if (elem.type==="direct") elem.directName = extractDirectName(elem.name)
+      if (elem.type==="direct") { 
+        elem.directName = extractDirectName(elem.name)
+        elem.url = store.API+'/users/'+extractDirectID(elem.name)+'/pic?token='+store.token
+
+      }
       else elem.directName = ""
     })
     channelsList.value = channels
@@ -694,4 +782,76 @@ function scrollToBottom() {
     }
   });
 }
+
+
+
+
+// Хранилище данных компонента
+const imageFile = ref(null)        // Объект File
+const imagePreviewUrl = ref(null)  // Blob URL для отображения
+const selectedFileName = ref('')
+const selectedFileSize = ref(0)
+
+// Обработка выбора файла
+const handleImageSelect = (file) => {
+  if (!file) return
+  
+  // Проверка типа файла
+  if (!file.type.startsWith('image/')) {
+    console.error('Пожалуйста, выберите изображение')
+    return
+  }
+  
+  // Сохраняем метаданные
+  imageFile.value = file
+  selectedFileName.value = file.name
+  selectedFileSize.value = file.size
+  
+  // Создаем URL для предпросмотра
+  if (imagePreviewUrl.value) {
+    URL.revokeObjectURL(imagePreviewUrl.value)
+  }
+  imagePreviewUrl.value = URL.createObjectURL(file)
+}
+
+// Замена изображения
+const replaceImage = () => {
+  // Очищаем и показываем input снова
+  imagePreviewUrl.value = null
+  imageFile.value = null
+}
+
+// Удаление изображения
+const removeImage = () => {
+  if (imagePreviewUrl.value) {
+    URL.revokeObjectURL(imagePreviewUrl.value)
+  }
+  imagePreviewUrl.value = null
+  imageFile.value = null
+  selectedFileName.value = ''
+  selectedFileSize.value = 0
+}
+
+// Форматирование размера файла (байты -> человекочитаемый формат)
+const formatFileSize = (bytes) => {
+  if (bytes === 0) return '0 B'
+  const k = 1024
+  const sizes = ['B', 'KB', 'MB', 'GB']
+  const i = Math.floor(Math.log(bytes) / Math.log(k))
+  return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i]
+}
+
+
+
+const cleanup = () => {
+  if (imagePreviewUrl.value) {
+    URL.revokeObjectURL(imagePreviewUrl.value)
+  }
+}
+
+// Vue 3 Composition API - cleanup on unmount
+import { onBeforeUnmount } from 'vue'
+onBeforeUnmount(() => {
+  cleanup()
+})
 </script>

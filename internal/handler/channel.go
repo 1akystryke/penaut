@@ -11,6 +11,7 @@ func (h *Handler) createChannel(w http.ResponseWriter, r *http.Request) {
 		Type string `json:"type"`
 		Name string `json:"name"`
 	}
+
 	if err := readJSON(r, &req); err != nil {
 		writeError(w, http.StatusBadRequest, err)
 		return

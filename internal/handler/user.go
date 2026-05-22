@@ -42,7 +42,7 @@ func (h *Handler) getUserPic(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	w.Header().Set("Content-Type", "image/webp")
+	w.Header().Set("Content-Type", "image/jpeg")
 	defer picture.Close()
 	io.Copy(w, picture)
 }
