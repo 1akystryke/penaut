@@ -2,20 +2,13 @@ package handler
 
 import (
 	"io"
+	"log"
 	"net/http"
 	"strings"
 )
 
 func (h *Handler) createChannel(w http.ResponseWriter, r *http.Request) {
-	var req struct {
-		Type string `json:"type"`
-		Name string `json:"name"`
-	}
 
-	if err := readJSON(r, &req); err != nil {
-		writeError(w, http.StatusBadRequest, err)
-		return
-	}
 	token, ok := strings.CutPrefix(r.Header.Get("Authorization"),
 		"Bearer ",
 	)
@@ -23,7 +16,31 @@ func (h *Handler) createChannel(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "invalid authorization header", http.StatusUnauthorized)
 		return
 	}
-	ch, err := h.service.CreateChannel(r.Context(), req.Type, req.Name, token)
+
+	r.ParseMultipartForm(32 << 20)
+
+	// 2. Получаем текстовые поля
+	Type := r.FormValue("type")
+	Name := r.FormValue("name")
+
+	// 3. Получаем файл
+	file, header, err := r.FormFile("pic")
+
+	if err != nil {
+		log.Println(err)
+		http.Error(w, "Файл не загружен", http.StatusBadRequest)
+		return
+	}
+	defer file.Close()
+
+	ch, err := h.service.CreateChannel(r.Context(), Type, Name, token)
+	if err != nil {
+		writeError(w, http.StatusBadRequest, err)
+		return
+	}
+
+	_, err = h.service.UploadChannelPic(r.Context(), &ch, file, int(header.Size), header.Header.Get("Content-Type"))
+
 	if err != nil {
 		writeError(w, http.StatusBadRequest, err)
 		return

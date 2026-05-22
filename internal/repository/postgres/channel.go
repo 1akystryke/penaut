@@ -17,6 +17,19 @@ func (s *Store) CreateChannel(ctx context.Context, channelType string, channelNa
 	return ch, err
 }
 
+func (s *Store) UpdateChannelPic(ctx context.Context, picName string, channel *model.Channel) (bool, error) {
+	result, err := s.db.Exec(ctx,
+		`UPDATE channels SET picture_path = $1 WHERE id = $2`,
+		picName, channel.ID,
+	)
+	if err != nil {
+		return false, err
+	}
+
+	rowsAffected := result.RowsAffected()
+	return rowsAffected > 0, nil
+}
+
 func (s *Store) ListChannels(ctx context.Context, userId string) ([]model.Channel, error) {
 	rows, err := s.db.Query(ctx, `SELECT c.id, max(c.type) as type,max(c.name) as name , coalesce(max(c.picture_path), '') as picture_path
 				FROM channels as c
@@ -36,7 +49,7 @@ func (s *Store) ListChannels(ctx context.Context, userId string) ([]model.Channe
 
 func (s *Store) GetChannelbyID(ctx context.Context, channelID string) (*model.Channel, error) {
 	rows, err := s.db.Query(ctx,
-		`select c.*
+		`select id, type,name, coalesce(picture_path, '') as picture_path
 		FROM channels as c
 		where c."id" = $1
 		limit 1

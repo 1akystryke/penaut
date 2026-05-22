@@ -192,7 +192,7 @@
           >
             <template #prepend>
               <v-avatar size="40" color="surface-variant">
-                <v-icon>{{"mdi-"+channel.icon }}</v-icon>
+                <v-img :src="channel.url"></v-img>
               </v-avatar>
             </template>
 
@@ -607,7 +607,6 @@ function parseCustomDate(dateString) {
 
 async function request(path,options={}){
   const headers={
-    'Content-Type':'application/json',
     ...(options.headers||{})
   }
   
@@ -642,7 +641,8 @@ async function loadChannels(){
         elem.url = store.API+'/users/'+extractDirectID(elem.name)+'/pic?token='+store.token
 
       }
-      else elem.directName = ""
+      else {elem.directName = ""
+        elem.url = store.API+'/channels/'+elem.id+'/pic?token='+store.token}
     })
     channelsList.value = channels
   }catch(e){
@@ -755,12 +755,18 @@ async function addChannel() {
   }
   try{
 
+    
+
+    const formData = new FormData();
+    formData.append('type', newChannelType.value);
+    formData.append("name", newChannelName.value);
+    if (imageFile.value) {
+        formData.append('pic', imageFile.value);
+    }
     await request('/channels',{
+      
       method:'POST',
-      body:JSON.stringify({
-        "type":newChannelType.value,
-        "name":newChannelName.value
-      })
+      body: formData
     })
 
     await loadChannels()

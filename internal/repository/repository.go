@@ -18,6 +18,7 @@ type ChannelRepository interface {
 	CreateChannel(ctx context.Context, channelType string, channelName string) (model.Channel, error)
 	ListChannels(ctx context.Context, userId string) ([]model.Channel, error)
 	GetChannelbyID(ctx context.Context, channelID string) (*model.Channel, error)
+	UpdateChannelPic(ctx context.Context, picName string, channel *model.Channel) (bool, error)
 }
 
 type MembershipRepository interface {

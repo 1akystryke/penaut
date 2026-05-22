@@ -29,6 +29,7 @@ func (s *Storage) Upload(
 		},
 	)
 	if err != nil {
+		log.Println(err)
 		return "", err
 	}
 
@@ -90,7 +91,6 @@ func (s *Storage) List(
 }
 
 func (s *Storage) GetFile(ctx context.Context, filename string) (*minioSDK.Object, error) {
-	log.Println("получаем файл" + filename)
 	obj, err := s.client.GetObject(
 		ctx,
 		"files",
