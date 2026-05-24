@@ -1,0 +1,183 @@
+name: Compose E2E Tests
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+
+jobs:
+  compose-e2e:
+    runs-on: ubuntu-latest
+
+    env:
+      FRONTEND_PORT: "3000"
+      BACKEND_PORT: "8080"
+      FRONTEND_URL: "http://localhost:3000"
+      BACKEND_URL: "http://localhost:8080"
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Show Docker versions
+        run: |
+          docker version
+          docker compose version
+
+      - name: Build and start docker compose
+        run: |
+          docker compose up -d --build
+
+      - name: Show compose status
+        run: |
+          docker compose ps
+
+      - name: Check that all compose services are running
+        run: |
+          set -e
+
+          docker compose ps --format json > compose-ps.json
+
+          node <<'NODE'
+          const fs = require('fs')
+
+          const raw = fs.readFileSync('compose-ps.json', 'utf8').trim()
+          if (!raw) {
+            console.error('No compose services found')
+            process.exit(1)
+          }
+
+          const services = raw
+            .split('\n')
+            .filter(Boolean)
+            .map(line => JSON.parse(line))
+
+          const bad = services.filter(service => {
+            const state = String(service.State || '').toLowerCase()
+            return state !== 'running'
+          })
+
+          if (bad.length > 0) {
+            console.error('Some services are not running:')
+            console.error(JSON.stringify(bad, null, 2))
+            process.exit(1)
+          }
+
+          console.log('All compose services are running')
+          NODE
+
+      - name: Check that only frontend and backend ports are published
+        run: |
+          set -e
+
+          docker compose ps --format json > compose-ps.json
+
+          node <<'NODE'
+          const fs = require('fs')
+
+          const frontendPort = process.env.FRONTEND_PORT
+          const backendPort = process.env.BACKEND_PORT
+          const allowed = new Set([frontendPort, backendPort])
+
+          const raw = fs.readFileSync('compose-ps.json', 'utf8').trim()
+          const services = raw
+            .split('\n')
+            .filter(Boolean)
+            .map(line => JSON.parse(line))
+
+          const publishedPorts = []
+
+          for (const service of services) {
+            const publishers = service.Publishers || []
+
+            for (const publisher of publishers) {
+              if (!publisher.PublishedPort) continue
+
+              publishedPorts.push({
+                service: service.Service,
+                port: String(publisher.PublishedPort),
+                target: String(publisher.TargetPort || ''),
+                protocol: publisher.Protocol || 'tcp',
+              })
+            }
+          }
+
+          const unexpected = publishedPorts.filter(item => !allowed.has(item.port))
+          const actualPorts = new Set(publishedPorts.map(item => item.port))
+
+          if (!actualPorts.has(frontendPort)) {
+            console.error(`Frontend port ${frontendPort} is not published`)
+            process.exit(1)
+          }
+
+          if (!actualPorts.has(backendPort)) {
+            console.error(`Backend port ${backendPort} is not published`)
+            process.exit(1)
+          }
+
+          if (unexpected.length > 0) {
+            console.error('Unexpected published ports found:')
+            console.error(JSON.stringify(unexpected, null, 2))
+            process.exit(1)
+          }
+
+          console.log('Only frontend and backend ports are published')
+          console.log(JSON.stringify(publishedPorts, null, 2))
+          NODE
+
+      - name: Wait for backend
+        run: |
+          set -e
+
+          for i in {1..30}; do
+            code=$(curl -s -o /dev/null -w "%{http_code}" "$BACKEND_URL/health" || true)
+
+            if [ "$code" != "000" ]; then
+              echo "Backend responded with HTTP $code"
+              exit 0
+            fi
+
+            echo "Waiting for backend..."
+            sleep 2
+          done
+
+          echo "Backend did not respond"
+          docker compose logs
+          exit 1
+
+      - name: Wait for frontend
+        run: |
+          set -e
+
+          for i in {1..30}; do
+            code=$(curl -s -o /dev/null -w "%{http_code}" "$FRONTEND_URL" || true)
+
+            if [ "$code" = "200" ]; then
+              echo "Frontend responded with HTTP 200"
+              exit 0
+            fi
+
+            echo "Waiting for frontend..."
+            sleep 2
+          done
+
+          echo "Frontend did not respond with HTTP 200"
+          docker compose logs
+          exit 1
+
+      - name: Print logs on success
+        if: success()
+        run: |
+          docker compose logs --tail=100
+
+      - name: Print logs on failure
+        if: failure()
+        run: |
+          docker compose ps
+          docker compose logs
+
+      - name: Stop docker compose
+        if: always()
+        run: |
+          docker compose down -v
