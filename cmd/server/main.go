@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"fmt"
 	"log"
 	"net/http"
 	"os"
@@ -18,18 +19,32 @@ import (
 func main() {
 	ctx := context.Background()
 
-	databaseURL := getenv("DATABASE_URL", "postgres://postgres:postgres@localhost:5432/messenger?sslmode=disable")
+	dbHostname := getenv("DOCKER_DB_NAME", "postgres")
+	dbPort := getenv("DOCKER_DB_PORT", "5432")
+	dbName := getenv("DB_NAME", "peanut")
+	dbUser := getenv("DB_USER", "postgres")
+	dbPass := getenv("DB_PASSWORD", "postgres")
+
+	databaseURL := "postgres://" + dbUser + ":" + dbPass + "@" + dbHostname + ":" + dbPort + "/" + dbName + "?sslmode=disable"
+
+	fmt.Println("database url: " + databaseURL)
 	db, err := pgxpool.New(ctx, databaseURL)
 	if err != nil {
 		log.Fatal(err)
 	}
 	defer db.Close()
 
+	minioHostname := getenv("DOCKER_MINIO_NAME", "minio")
+	minioPort := getenv("DOCKER_MINIO_PORT_WEB", "9000")
+	minioAccessKey := getenv("MINIO_ACCESS_KEY", "minio")
+	minioSecretKey := getenv("MINIO_SECRET_KEY", "minio")
+	minioBucket := getenv("MINIO_BUCKET", "bucket")
+
 	storage := minio.New(
-		"localhost:9000",
-		"minio",
-		"minio123",
-		"files",
+		minioHostname+":"+minioPort,
+		minioAccessKey,
+		minioSecretKey,
+		minioBucket,
 		false,
 	)
 
@@ -45,7 +60,7 @@ func main() {
 	h := handler.New(svc)
 	handler := setupMiddleware(h, svc)
 
-	addr := getenv("ADDR", ":8080")
+	addr := ":" + getenv("DOCKER_BE_PORT", "8080")
 	log.Printf("listening on %s", addr)
 
 	log.Fatal(http.ListenAndServe(addr, handler))
