@@ -1,53 +1,78 @@
 services:
   postgres:
     image: postgres:16
-    container_name: peanut-postgres
-    env_file:
-      - .env
+    container_name: ${DOCKER_DB_NAME:-postgres}
+    environment:
+      POSTGRES_DB: ${DB_NAME:-messenger}
+      POSTGRES_USER: ${DB_USER:-postgres}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-postgres}
     ports:
-      - "${DOCKER_DB_PORT}:5432" # DEBUG ONLY
+      - "${DOCKER_DB_PORT:-5432}:5432" # DEBUG ONLY
     volumes:
       - postgres_data:/var/lib/postgresql/data
 
   minio:
     image: minio/minio:latest
-    command: server /data --console-address ":${DOCKER_MINIO_PORT_API}"
-    container_name: peanut-minio
-    env_file:
-      - .env
+    command: server /data --console-address ":${DOCKER_MINIO_PORT_API:-9001}"
+    container_name: ${DOCKER_MINIO_NAME:-minio}
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ACCESS_KEY:-minio}
+      MINIO_ROOT_PASSWORD: ${MINIO_SECRET_KEY:-minio123}
+      MINIO_ACCESS_KEY: ${MINIO_ACCESS_KEY:-minio}
+      MINIO_SECRET_KEY: ${MINIO_SECRET_KEY:-minio123}
+      MINIO_BUCKET: ${MINIO_BUCKET:-files}
     ports:
-      - "${DOCKER_MINIO_PORT_WEB}:${DOCKER_MINIO_PORT_WEB}" # DEBUG ONLY
-      - "${DOCKER_MINIO_PORT_API}:${DOCKER_MINIO_PORT_API}" #DEBUG ONLY
+      - "${DOCKER_MINIO_PORT_WEB:-9000}:${DOCKER_MINIO_PORT_WEB:-9000}" # DEBUG ONLY
+      - "${DOCKER_MINIO_PORT_API:-9001}:${DOCKER_MINIO_PORT_API:-9001}" #DEBUG ONLY
     volumes:
       - minio_data:/data
+
   backend:
     build:
       context: .
       dockerfile: Dockerfile
-    container_name: peanut-backend
+    container_name: ${DOCKER_BE_NAME:-backend}
     restart: unless-stopped
     depends_on:
       - postgres
       - minio
-    env_file:
-      - .env
+    environment:
+      DOCKER_BE_NAME: ${DOCKER_BE_NAME:-backend}
+      DOCKER_BE_PORT: ${DOCKER_BE_PORT:-8080}
+      DOCKER_DB_NAME: ${DOCKER_DB_NAME:-postgres}
+      DOCKER_DB_PORT: ${DOCKER_DB_PORT:-5432}
+      DB_PORT: ${DB_PORT:-5432}
+      DB_NAME: ${DB_NAME:-messenger}
+      DB_USER: ${DB_USER:-postgres}
+      DB_PASSWORD: ${DB_PASSWORD:-postgres}
+      DOCKER_MINIO_NAME: ${DOCKER_MINIO_NAME:-minio}
+      DOCKER_MINIO_PORT_WEB: ${DOCKER_MINIO_PORT_WEB:-9000}
+      DOCKER_MINIO_PORT_API: ${DOCKER_MINIO_PORT_API:-9001}
+      MINIO_ACCESS_KEY: ${MINIO_ACCESS_KEY:-minio}
+      MINIO_SECRET_KEY: ${MINIO_SECRET_KEY:-minio123}
+      MINIO_BUCKET: ${MINIO_BUCKET:-files}
+      INIT_DB: ${INIT_DB:-true}
     ports:
-      - "${DOCKER_BE_PORT}:${DOCKER_BE_PORT}"
+      - "${DOCKER_BE_PORT:-8080}:${DOCKER_BE_PORT:-8080}"
     working_dir: /app
 
   frontend:
     build:
       context: ./webclient
       dockerfile: Dockerfile
-    container_name: peanut-frontend
+    container_name: ${DOCKER_FE_NAME:-frontend}
     restart: unless-stopped
     depends_on:
       - backend
-    env_file:
-      - .env
+    environment:
+      DOCKER_FE_NAME: ${DOCKER_FE_NAME:-frontend}
+      DOCKER_FE_PORT: ${DOCKER_FE_PORT:-3000}
+      DOCKER_BE_NAME: ${DOCKER_BE_NAME:-backend}
+      DOCKER_BE_PORT: ${DOCKER_BE_PORT:-8080}
     ports:
-      - "${DOCKER_FE_PORT}:${DOCKER_FE_PORT}"
+      - "${DOCKER_FE_PORT:-3000}:${DOCKER_FE_PORT:-3000}"
     working_dir: /app
+
 volumes:
   postgres_data:
   minio_data:
