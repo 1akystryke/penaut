@@ -37,7 +37,7 @@ func main() {
 	minioHostname := getenv("DOCKER_MINIO_NAME", "minio")
 	minioPort := getenv("DOCKER_MINIO_PORT_WEB", "9000")
 	minioAccessKey := getenv("MINIO_ACCESS_KEY", "minio")
-	minioSecretKey := getenv("MINIO_SECRET_KEY", "minio")
+	minioSecretKey := getenv("MINIO_SECRET_KEY", "minio123")
 	minioBucket := getenv("MINIO_BUCKET", "bucket")
 
 	storage := minio.New(

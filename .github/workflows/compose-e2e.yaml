@@ -9,7 +9,6 @@ on:
 jobs:
   compose-e2e:
     runs-on: ubuntu-latest
-
     env:
       FRONTEND_PORT: "3000"
       BACKEND_PORT: "8080"

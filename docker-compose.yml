@@ -6,6 +6,12 @@ services:
       POSTGRES_DB: ${DB_NAME:-messenger}
       POSTGRES_USER: ${DB_USER:-postgres}
       POSTGRES_PASSWORD: ${DB_PASSWORD:-postgres}
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+      start_period: 5s
     ports:
       - "${DOCKER_DB_PORT:-5432}:5432" # DEBUG ONLY
     volumes:
@@ -34,8 +40,10 @@ services:
     container_name: ${DOCKER_BE_NAME:-backend}
     restart: unless-stopped
     depends_on:
-      - postgres
-      - minio
+      postgres:
+        condition: service_healthy
+      minio:
+        condition: service_started
     environment:
       DOCKER_BE_NAME: ${DOCKER_BE_NAME:-backend}
       DOCKER_BE_PORT: ${DOCKER_BE_PORT:-8080}
