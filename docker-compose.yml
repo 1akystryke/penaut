@@ -12,8 +12,8 @@ services:
       timeout: 5s
       retries: 10
       start_period: 5s
-    ports:
-      - "${DOCKER_DB_PORT:-5432}:5432" # DEBUG ONLY
+#    ports:
+#      - "${DOCKER_DB_PORT:-5432}:5432" # DEBUG ONLY
     volumes:
       - postgres_data:/var/lib/postgresql/data
 
@@ -27,9 +27,9 @@ services:
       MINIO_ACCESS_KEY: ${MINIO_ACCESS_KEY:-minio}
       MINIO_SECRET_KEY: ${MINIO_SECRET_KEY:-minio123}
       MINIO_BUCKET: ${MINIO_BUCKET:-files}
-    ports:
-      - "${DOCKER_MINIO_PORT_WEB:-9000}:${DOCKER_MINIO_PORT_WEB:-9000}" # DEBUG ONLY
-      - "${DOCKER_MINIO_PORT_API:-9001}:${DOCKER_MINIO_PORT_API:-9001}" #DEBUG ONLY
+#    ports:
+#      - "${DOCKER_MINIO_PORT_WEB:-9000}:${DOCKER_MINIO_PORT_WEB:-9000}" # DEBUG ONLY
+#      - "${DOCKER_MINIO_PORT_API:-9001}:${DOCKER_MINIO_PORT_API:-9001}" #DEBUG ONLY
     volumes:
       - minio_data:/data
 

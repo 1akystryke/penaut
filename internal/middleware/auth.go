@@ -118,7 +118,7 @@ func MakeAuthMiddleware(s *service.Service, tokenLifeTimeMinutes int) func(http.
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			endpoint := r.URL.String()
 
-			if endpoint == "/auth" {
+			if endpoint == "/auth" || endpoint == "/health" {
 				next.ServeHTTP(w, r)
 			} else if endpoint[:4] == "/ws?" || MatchesPattern(endpoint) {
 				token := strings.TrimSpace(r.URL.Query().Get("token"))
