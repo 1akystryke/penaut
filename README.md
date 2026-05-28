@@ -1,39 +1,65 @@
-# Messenger
+# Penaut Messenger
 
-Простой мессенджер на Go + PostgreSQL с REST API, WebSocket и Vue/Vuetify web-клиентом.
+Penaut Messenger is a small messenger project built with Go, PostgreSQL, MinIO, WebSocket, and a Vue/Vuetify frontend.
 
-Backend сам инициализирует базу данных при старте, если включён `INIT_DB=true`.
+> Status: this project is still in development. APIs, auth behavior, database schema, and frontend flows may change.
 
-## Стек
+## Stack
 
-- Go
+- Go backend
 - PostgreSQL
+- MinIO object storage
 - REST API
-- WebSocket
-- Vue 3 + Vuetify
-- Docker Compose для локальной PostgreSQL
+- WebSocket messaging
+- Vue 3 + Vuetify frontend
+- Docker Compose for local development
 
-## Запуск backend
+## Project Structure
 
-Сначала поднять PostgreSQL:
-
-```bash
-docker compose up -d
+```text
+cmd/server/                    Backend entrypoint
+internal/handler/              HTTP and WebSocket handlers
+internal/service/              Business logic
+internal/repository/           Repository interfaces
+internal/repository/postgres/  PostgreSQL implementation and schema
+internal/storage/minio/        MinIO storage integration
+internal/middleware/           Auth, CORS, and logging middleware
+webclient/                     Vue/Vuetify frontend
+docker-compose.yml             Local development stack
 ```
 
-Затем запустить сервер:
+## Run With Docker Compose
+
+```bash
+docker compose up --build
+```
+
+Default public services:
+
+```text
+Backend:  http://localhost:8080
+Frontend: http://localhost:3000
+```
+
+PostgreSQL and MinIO are used internally by the compose network. Their public port mappings are currently disabled in `docker-compose.yml`.
+
+## Run Backend Locally
+
+Start dependencies first:
+
+```bash
+docker compose up postgres minio
+```
+
+Then run the backend:
 
 ```bash
 go run ./cmd/server
 ```
 
-По умолчанию backend слушает:
+The backend initializes the database schema on startup when `INIT_DB=true`.
 
-```text
-http://localhost:8080
-```
-
-## Запуск webclient
+## Run Frontend Locally
 
 ```bash
 cd webclient
@@ -41,207 +67,80 @@ npm install
 npm run dev
 ```
 
-## Переменные окружения backend
+The frontend dev server listens on:
 
 ```text
-DATABASE_URL
-ADDR
-INIT_DB
+http://localhost:3000
 ```
 
-### DATABASE_URL
+## Environment Variables
 
-Строка подключения к PostgreSQL.
+All variables have defaults in `docker-compose.yml`, so the project can start without a `.env` file.
 
-Значение по умолчанию:
+Common variables:
 
 ```text
-postgres://postgres:postgres@localhost:5432/messenger?sslmode=disable
+DOCKER_BE_PORT=8080
+DOCKER_FE_PORT=3000
+
+DOCKER_DB_NAME=postgres
+DOCKER_DB_PORT=5432
+DB_NAME=messenger
+DB_USER=postgres
+DB_PASSWORD=postgres
+
+DOCKER_MINIO_NAME=minio
+DOCKER_MINIO_PORT_WEB=9000
+DOCKER_MINIO_PORT_API=9001
+MINIO_ACCESS_KEY=minio
+MINIO_SECRET_KEY=minio123
+MINIO_BUCKET=files
+
+INIT_DB=true
 ```
 
-### ADDR
+## API Overview
 
-Адрес HTTP-сервера.
-
-Значение по умолчанию:
-
-```text
-:8080
-```
-
-### INIT_DB
-
-Запускать SQL-инициализацию базы данных при старте.
-
-Значение по умолчанию:
-
-```text
-true
-```
-
-SQL-схема находится здесь:
-
-```text
-internal/repository/postgres/schema.sql
-```
-
-## Структура проекта
-
-```text
-cmd/server/main.go                  # точка входа backend, env, wiring зависимостей
-internal/handler/                   # HTTP handlers и WebSocket handler
-internal/service/                   # бизнес-логика и валидация
-internal/repository/                # интерфейсы репозиториев
-internal/repository/postgres/       # PostgreSQL-реализация, SQL-запросы и schema.sql
-internal/model/                     # модели JSON/DB
-internal/middleware/                # logging, auth, CORS middleware
-webclient/                          # Vue/Vuetify frontend
-index.html                          # простой standalone HTML-клиент
-docker-compose.yml                  # PostgreSQL для локального запуска
-```
-
-## База данных
-
-При старте backend создаёт таблицы, если они ещё не существуют:
-
-- `users`
-- `channels`
-- `posts`
-- `memberships`
-- `tokens`
-
-Также создаётся расширение PostgreSQL:
-
-```sql
-CREATE EXTENSION IF NOT EXISTS pgcrypto;
-```
-
-UUID генерируются на стороне PostgreSQL через `gen_random_uuid()`.
-
-## Авторизация
-
-В проекте есть token-based авторизация.
-
-Текущий middleware авторизации пропускает без проверки:
-
-- `POST /auth`
-- WebSocket URL, начинающиеся с `/ws?`
-
-Остальные REST-запросы требуют `Authorization: Bearer <token>`, включая `GET /health` и `POST /users`.
-
-Это значит, что для пустой базы нужен bootstrap первого пользователя: например, временно отключить auth middleware на время разработки, создать пользователя напрямую в базе или добавить `POST /users` в список публичных endpoint'ов.
-
-После появления пользователя token можно получить через:
-
-```http
-POST /auth
-```
-
-Защищённые REST-запросы должны передавать token в заголовке:
-
-```http
-Authorization: Bearer <token>
-```
-
-WebSocket передаёт token через query-параметр:
-
-```text
-ws://localhost:8080/ws?channel_id=<channel_id>&token=<token>
-```
-
-## Формат ошибок
-
-Большинство ошибок возвращаются в JSON:
-
-```json
-{
-  "error": "error message"
-}
-```
-
-Если запрос отклонён middleware авторизации, ответ может быть обычным текстом:
-
-```text
-invalid authorization header
-```
-
-## REST API
-
-Базовый URL:
+Base URL:
 
 ```text
 http://localhost:8080
 ```
 
-### Healthcheck
+Main REST endpoints:
 
 ```http
-GET /health
-```
+GET  /health
+POST /auth
 
-Возвращает:
-
-```json
-{
-  "status": "ok"
-}
-```
-
-Важно: текущий auth middleware защищает `/health`, поэтому для запроса нужен заголовок `Authorization`.
-
-### Создать пользователя
-
-```http
+GET  /users
 POST /users
+GET  /users/{user_id}/pic
+POST /users/{user_id}/direct
+
+GET  /channels
+POST /channels
+GET  /channels/{channel_id}/members
+POST /channels/{channel_id}/members
+GET  /channels/{channel_id}/posts
+POST /channels/{channel_id}/posts
+GET  /channels/{channel_id}/pic
+
+GET  /posts/{post_id}/attachments
+GET  /attachment/{file_path}
 ```
 
-Headers:
+WebSocket endpoint:
 
-```http
-Authorization: Bearer <token>
+```text
+ws://localhost:8080/ws?channel_id=<channel_id>&token=<token>
 ```
 
-Request:
+## Authentication
 
-```json
-{
-  "name": "Slava",
-  "email": "slava@example.com",
-  "password_hash": "password-or-hash"
-}
-```
+The backend uses token-based authentication.
 
-Response:
-
-```json
-{
-  "id": "uuid",
-  "name": "Slava",
-  "email": "slava@example.com",
-  "password_hash": "password-or-hash"
-}
-```
-
-### Получить пользователей
-
-```http
-GET /users
-```
-
-Response:
-
-```json
-[
-  {
-    "id": "uuid",
-    "name": "Slava",
-    "email": "slava@example.com",
-    "password_hash": ""
-  }
-]
-```
-
-### Авторизация
+Login:
 
 ```http
 POST /auth
@@ -251,7 +150,7 @@ Request:
 
 ```json
 {
-  "email": "slava@example.com",
+  "email": "user@example.com",
   "pwd": "password-or-hash"
 }
 ```
@@ -262,269 +161,54 @@ Response:
 "generated-token"
 ```
 
-Этот token нужно использовать в `Authorization: Bearer <token>`.
-
-### Создать канал
-
-```http
-POST /channels
-```
-
-Request:
-
-```json
-{
-  "type": "public"
-}
-```
-
-Допустимые значения `type`:
-
-```text
-direct
-public
-private
-```
-
-Response:
-
-```json
-{
-  "id": "uuid",
-  "type": "public"
-}
-```
-
-### Получить каналы
-
-```http
-GET /channels
-```
-
-Response:
-
-```json
-[
-  {
-    "id": "uuid",
-    "type": "public"
-  }
-]
-```
-
-### Добавить пользователя в канал
-
-```http
-POST /channels/{channel_id}/members
-```
-
-Request:
-
-```json
-{
-  "user_id": "uuid"
-}
-```
-
-Response:
-
-```json
-{
-  "user_id": "uuid",
-  "channel_id": "uuid"
-}
-```
-
-### Получить участников канала
-
-```http
-GET /channels/{channel_id}/members
-```
-
-Response:
-
-```json
-[
-  {
-    "id": "uuid",
-    "name": "Slava",
-    "email": "slava@example.com",
-    "password_hash": ""
-  }
-]
-```
-
-### Создать сообщение
-
-```http
-POST /channels/{channel_id}/posts
-```
-
-Headers:
+Protected REST requests use:
 
 ```http
 Authorization: Bearer <token>
 ```
 
-Request:
-
-```json
-{
-  "text": "hello"
-}
-```
-
-Response:
-
-```json
-{
-  "id": "uuid",
-  "text": "hello",
-  "channel_id": "uuid",
-  "author": "uuid",
-  "created_at": "2026-05-18T12:00:00Z"
-}
-```
-
-После создания сообщение рассылается всем WebSocket-клиентам, подключённым к этому каналу.
-
-### Получить сообщения канала
-
-```http
-GET /channels/{channel_id}/posts
-```
-
-Response:
-
-```json
-[
-  {
-    "id": "uuid",
-    "text": "hello",
-    "channel_id": "uuid",
-    "author": "uuid",
-    "created_at": "2026-05-18T12:00:00Z"
-  }
-]
-```
-
-## WebSocket API
-
-Endpoint:
+WebSocket requests pass the token as a query parameter:
 
 ```text
 ws://localhost:8080/ws?channel_id=<channel_id>&token=<token>
 ```
 
-Query-параметры:
+Development note: auth and user bootstrap are still being refined. In a fresh database, creating the first user may require a temporary development bootstrap step.
 
-- `channel_id` — UUID канала
-- `token` — token, полученный через `POST /auth`
+## Database
 
-Отправка сообщения:
-
-```json
-{
-  "text": "hello from websocket"
-}
-```
-
-Получение сообщения:
-
-```json
-{
-  "id": "uuid",
-  "text": "hello from websocket",
-  "channel_id": "uuid",
-  "author": "uuid",
-  "created_at": "2026-05-18T12:00:00Z"
-}
-```
-
-Если сообщение невалидное, сервер отправляет:
-
-```json
-{
-  "error": "text is required"
-}
-```
-
-## CORS
-
-Backend содержит CORS middleware.
-
-Разрешены методы:
+The PostgreSQL schema is defined in:
 
 ```text
-GET, POST, OPTIONS
+internal/repository/postgres/schema.sql
 ```
 
-Разрешены заголовки:
+The current schema includes:
 
-```text
-Content-Type, Authorization
-```
+- users
+- channels
+- posts
+- memberships
+- tokens
+- attachments/storage-related tables as the project evolves
 
-Это нужно для работы frontend-клиентов, которые обращаются к backend с другого origin.
+## Development Checks
 
-## Примеры curl
-
-### Создать пользователя
-
-В текущей конфигурации этот запрос требует уже существующий token.
+Run Go package checks:
 
 ```bash
-curl -X POST http://localhost:8080/users \
-  -H "Authorization: Bearer $TOKEN" \
-  -H 'Content-Type: application/json' \
-  -d '{"name":"Slava","email":"slava@example.com","password_hash":"123"}'
+go test ./...
 ```
 
-### Получить token
+Validate compose configuration:
 
 ```bash
-TOKEN=$(curl -s -X POST http://localhost:8080/auth \
-  -H 'Content-Type: application/json' \
-  -d '{"email":"slava@example.com","pwd":"123"}')
+docker compose config
 ```
 
-### Создать канал
+## Notes
 
-```bash
-curl -X POST http://localhost:8080/channels \
-  -H "Authorization: Bearer $TOKEN" \
-  -H 'Content-Type: application/json' \
-  -d '{"type":"public"}'
-```
-
-### Получить каналы
-
-```bash
-curl http://localhost:8080/channels \
-  -H "Authorization: Bearer $TOKEN"
-```
-
-### Добавить пользователя в канал
-
-```bash
-curl -X POST http://localhost:8080/channels/<channel_id>/members \
-  -H "Authorization: Bearer $TOKEN" \
-  -H 'Content-Type: application/json' \
-  -d '{"user_id":"<user_id>"}'
-```
-
-### Создать сообщение
-
-```bash
-curl -X POST http://localhost:8080/channels/<channel_id>/posts \
-  -H "Authorization: Bearer $TOKEN" \
-  -H 'Content-Type: application/json' \
-  -d '{"text":"hello"}'
-```
-
-### Получить сообщения
-
-```bash
-curl http://localhost:8080/channels/<channel_id>/posts \
-  -H "Authorization: Bearer $TOKEN"
-```
+- The project is not production-ready yet.
+- Error formats and auth rules may still change.
+- Docker Compose waits for PostgreSQL health before starting the backend.
+- CORS middleware is enabled for frontend/backend development.
