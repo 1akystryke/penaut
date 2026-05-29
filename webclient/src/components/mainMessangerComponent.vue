@@ -336,6 +336,37 @@
               <v-list-item-title>{{ message.text }} <br/>
                 {{ formatMessengerDate(message.time) }}
               </v-list-item-title>
+              <div
+                v-if="message.attachments && message.attachments.length"
+                class="message-attachments"
+                :class="{ 'justify-end': message.isMine }"
+              >
+                <a
+                  v-for="attachment in message.attachments"
+                  :key="attachment.file_path"
+                  :href="attachment.url"
+                  target="_blank"
+                  rel="noopener"
+                  class="message-attachment"
+                >
+                  <v-img
+                    v-if="isImageAttachment(attachment)"
+                    :src="attachment.url"
+                    width="180"
+                    height="120"
+                    cover
+                    rounded="lg"
+                  />
+                  <v-chip
+                    v-else
+                    prepend-icon="mdi-paperclip"
+                    variant="tonal"
+                    size="small"
+                  >
+                    {{ attachment.file_path }}
+                  </v-chip>
+                </a>
+              </div>
             </v-list-item-content>
           </v-list-item>
           </v-list>
@@ -349,33 +380,63 @@
         class="chat-footer pa-2"
         border="top"
       >
-        <v-text-field
-          v-model="newMessage"
-          variant="outlined"
-          density="compact"
-          placeholder="Введите сообщение..."
-          hide-details
-          @keyup.enter="sendMessage2"
-        >
-          <template #prepend-inner>
-            <v-btn icon="mdi-emoticon-outline" variant="text" size="small" />
-          </template>
-        </v-text-field>
-        <v-btn
-          icon="mdi-send"
-          color="primary"
-          variant="text"
-          class="ml-2"
-          @click="sendMessage2"
-          :disabled="!newMessage.trim()"
-        />
+        <div class="composer">
+          <div v-if="messageFiles.length" class="composer-attachments">
+            <v-chip
+              v-for="(file, index) in messageFiles"
+              :key="file.name + file.size + index"
+              closable
+              prepend-icon="mdi-paperclip"
+              variant="tonal"
+              size="small"
+              @click:close="removeMessageAttachment(index)"
+            >
+              {{ file.name }}
+            </v-chip>
+          </div>
+          <div class="composer-input">
+            <input
+              ref="messageFileInput"
+              type="file"
+              multiple
+              class="d-none"
+              @change="handleMessageFilesSelect"
+            />
+            <v-btn
+              icon="mdi-paperclip"
+              variant="text"
+              class="mr-1"
+              @click="openMessageFilePicker"
+            />
+            <v-text-field
+              v-model="newMessage"
+              variant="outlined"
+              density="compact"
+              placeholder="Введите сообщение..."
+              hide-details
+              @keyup.enter="sendMessage2"
+            >
+              <template #prepend-inner>
+                <v-btn icon="mdi-emoticon-outline" variant="text" size="small" />
+              </template>
+            </v-text-field>
+            <v-btn
+              icon="mdi-send"
+              color="primary"
+              variant="text"
+              class="ml-2"
+              @click="sendMessage2"
+              :disabled="isSendingMessage || !newMessage.trim()"
+            />
+          </div>
+        </div>
       </v-footer>
     </v-main>
   </v-app>
 </template>
 
 <script setup>
-import { ref, computed, watch, nextTick } from 'vue';
+import { ref, computed, watch, nextTick, onBeforeUnmount } from 'vue';
 import { authStore } from '@/stores/authStore.vue'
 const store = authStore()
 
@@ -400,6 +461,10 @@ const sidePanelMode = ref('channels')
 const directPictures = ref({})
 const createDirectDialog = ref(false)
 const newDirectId = ref(null)
+const messageFiles = ref([])
+const messageFileInput = ref(null)
+const isSendingMessage = ref(false)
+const attachmentObjectUrls = new Set()
 
 var socket = null
 
@@ -533,7 +598,7 @@ function addUserDialogOpen(){
 // Выбор канала
 function selectChannel(channelId) {
   activeChannel.value = channelId;
-  messages.value = getChannelMessages(channelId);
+  getChannelMessages(channelId);
   subscribeWebSocket(channelId);
   getChannelMembers(channelId)
   scrollToBottom();
@@ -583,8 +648,10 @@ function subscribeWebSocket(channelId){
     }
 
 
-    messages.value.push(data)
-    scrollToBottom()
+    hydrateMessageAttachments(data).then(() => {
+      messages.value.push(data)
+      scrollToBottom()
+    })
   }
 
   socket.onerror=()=>{
@@ -627,6 +694,27 @@ async function request(path,options={}){
   }
 
   return data
+}
+
+async function requestBlob(path){
+  const headers={}
+
+  if(store.status){
+    headers.Authorization=`Bearer ${store.token}`
+  }
+
+  const r=await fetch(store.API+path,{
+    headers
+  })
+
+  if (r.status===401){
+    store.breakAuth()
+  }
+  if(!r.ok){
+    throw new Error('Request failed')
+  }
+
+  return r.blob()
 }
 
 async function loadChannels(){
@@ -692,7 +780,7 @@ async function getChannelMessages(channelId){
   try{
     const posts=await request(`/channels/${channelId}/posts`)
 
-    posts.forEach(element => {
+    await Promise.all(posts.map(async element => {
       element.time = parseCustomDate(element.created_at)
       element.sender = element.user_name
       element.avatar = 'peanut-outline'
@@ -703,7 +791,8 @@ async function getChannelMessages(channelId){
         element.isMine = false
 
       }
-    });
+      await hydrateMessageAttachments(element)
+    }));
 
     messages.value = posts
   }catch(e){
@@ -720,31 +809,82 @@ async function sendMessage2(){
   }
 
   try{
+    isSendingMessage.value = true
 
-    // websocket first
-    if(socket && socket.readyState===1){
+    const formData = new FormData();
+    formData.append('text', text);
+    messageFiles.value.forEach(file => {
+      formData.append('attachments[]', file);
+    })
 
-      socket.send(JSON.stringify({text}))
-
-    }else{
-
-      // fallback REST
-      await request(
-        `/channels/${activeChannel.value.id}/posts`,
+    const post = await request(
+        `/channels/${activeChannel.value}/posts`,
         {
           method:'POST',
-          body:JSON.stringify({text})
+          body:formData
         }
       )
-
-      await loadMessages(activeChannel.value.id)
+    if(!socket || !socket.readyState===1){
+      post.time = parseCustomDate(post.created_at)
+      post.sender = post.user_name
+      post.avatar = 'peanut-outline'
+      post.isMine = post.author==store.meId
+      await hydrateMessageAttachments(post)
+      messages.value.push(post)
+      scrollToBottom()
     }
 
     newMessage.value=''
+    clearMessageAttachments()
 
   }catch(e){
     alert(e.message)
+  }finally{
+    isSendingMessage.value = false
   }
+}
+
+function openMessageFilePicker(){
+  messageFileInput.value?.click()
+}
+
+function handleMessageFilesSelect(event){
+  const files = Array.from(event.target.files || [])
+  messageFiles.value = [...messageFiles.value, ...files]
+  event.target.value = ''
+}
+
+function removeMessageAttachment(index){
+  messageFiles.value.splice(index, 1)
+}
+
+function clearMessageAttachments(){
+  messageFiles.value = []
+  if(messageFileInput.value){
+    messageFileInput.value.value = ''
+  }
+}
+
+async function hydrateMessageAttachments(message){
+  try{
+    const attachments = await request(`/posts/${message.id}/attachments`)
+    message.attachments = await Promise.all(attachments.map(async attachment => {
+      const blob = await requestBlob(`/attachment/${encodeURIComponent(attachment.file_path)}`)
+      const url = URL.createObjectURL(blob)
+      attachmentObjectUrls.add(url)
+      return {
+        ...attachment,
+        url,
+        file_type: attachment.file_type || blob.type,
+      }
+    }))
+  }catch(e){
+    message.attachments = []
+  }
+}
+
+function isImageAttachment(attachment){
+  return attachment.file_type?.startsWith('image/')
 }
 
 // Функция для добавления канала (заглушка)
@@ -853,11 +993,45 @@ const cleanup = () => {
   if (imagePreviewUrl.value) {
     URL.revokeObjectURL(imagePreviewUrl.value)
   }
+  attachmentObjectUrls.forEach(url => URL.revokeObjectURL(url))
+  attachmentObjectUrls.clear()
 }
 
-// Vue 3 Composition API - cleanup on unmount
-import { onBeforeUnmount } from 'vue'
 onBeforeUnmount(() => {
   cleanup()
 })
 </script>
+
+<style scoped>
+.composer {
+  width: 100%;
+}
+
+.composer-input {
+  align-items: center;
+  display: flex;
+  gap: 4px;
+  width: 100%;
+}
+
+.composer-attachments {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 0 0 8px 48px;
+}
+
+.message-attachments {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.message-attachment {
+  color: inherit;
+  display: inline-flex;
+  max-width: 220px;
+  text-decoration: none;
+}
+</style>

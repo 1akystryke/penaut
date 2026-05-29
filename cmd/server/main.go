@@ -19,9 +19,9 @@ import (
 func main() {
 	ctx := context.Background()
 
-	dbHostname := getenv("DOCKER_DB_NAME", "postgres")
+	dbHostname := getenv("DOCKER_DB_NAME", "localhost")
 	dbPort := getenv("DOCKER_DB_PORT", "5432")
-	dbName := getenv("DB_NAME", "peanut")
+	dbName := getenv("DB_NAME", "messenger")
 	dbUser := getenv("DB_USER", "postgres")
 	dbPass := getenv("DB_PASSWORD", "postgres")
 
@@ -34,11 +34,11 @@ func main() {
 	}
 	defer db.Close()
 
-	minioHostname := getenv("DOCKER_MINIO_NAME", "minio")
+	minioHostname := getenv("DOCKER_MINIO_NAME", "localhost")
 	minioPort := getenv("DOCKER_MINIO_PORT_WEB", "9000")
 	minioAccessKey := getenv("MINIO_ACCESS_KEY", "minio")
 	minioSecretKey := getenv("MINIO_SECRET_KEY", "minio123")
-	minioBucket := getenv("MINIO_BUCKET", "bucket")
+	minioBucket := getenv("MINIO_BUCKET", "files")
 
 	storage := minio.New(
 		minioHostname+":"+minioPort,

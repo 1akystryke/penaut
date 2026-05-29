@@ -38,4 +38,5 @@ type TokenRepository interface {
 
 type AttachmentRepository interface {
 	GetAttachmentsbyPostID(ctx context.Context, postID string) ([]model.Attachment, error)
+	UpdatePostAttachment(ctx context.Context, picName string, postID string, fileType string) (*model.Attachment, error)
 }
